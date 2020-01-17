@@ -1,0 +1,8 @@
+server=____
+database=_____
+password=______
+user=______
+
+tables=./data/tables
+
+after=data/views/

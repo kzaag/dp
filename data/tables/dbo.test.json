@@ -1,0 +1,24 @@
+{
+	"name": "dbo.test",
+	"columns": [
+		{
+			"name": "id",
+			"type": "int",
+			"is_nullable": false,
+			"is_identity": true
+		},
+		{
+			"name": "x",
+			"type": "varchar",
+			"max_length": 50
+		}
+	],
+	"primary": {
+		"name": "test_pk",
+		"columns": [
+			{
+				"name": "id"
+			}
+		]
+	}
+}
