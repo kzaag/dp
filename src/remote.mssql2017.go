@@ -10,6 +10,18 @@ import (
 
 type RemoteMsSql2017 struct{}
 
+// split {schema}.{name} sql name into 2 parts
+func SchemaName(name string) (string, string, error) {
+	if name == "" || !strings.Contains(name, ".") {
+		return "", "", fmt.Errorf("invalid sql name. expected: {schema}.{name} got: \"" + name + "\"")
+	}
+	sn := strings.Split(name, ".")
+	if sn == nil || len(sn) != 2 {
+		return "", "", fmt.Errorf("couldnt split sql name into schema, name array")
+	}
+	return sn[0], sn[1], nil
+}
+
 func (m RemoteMsSql2017) GetAllTableName(db *sql.DB) ([]string, error) {
 	r, err := db.Query(
 		"select s.name + '.' + t.name from sys.tables t inner join sys.schemas s on s.schema_id = t.schema_id")
@@ -30,78 +42,6 @@ func (m RemoteMsSql2017) GetAllTableName(db *sql.DB) ([]string, error) {
 	var ret = make([]string, buff.Len())
 	for i, x := 0, buff.Front(); i < buff.Len(); i, x = i+1, x.Next() {
 		ret[i] = x.Value.(string)
-	}
-
-	return ret, nil
-}
-
-// split {schema}.{name} sql name into 2 parts
-func SchemaName(name string) (string, string, error) {
-	if name == "" || !strings.Contains(name, ".") {
-		return "", "", fmt.Errorf("invalid sql name. expected: {schema}.{name} got: \"" + name + "\"")
-	}
-	sn := strings.Split(name, ".")
-	if sn == nil || len(sn) != 2 {
-		return "", "", fmt.Errorf("couldnt split sql name into schema, name array")
-	}
-	return sn[0], sn[1], nil
-}
-
-func (m RemoteMsSql2017) GetAllIx(db *sql.DB, tableName string) ([]Index, error) {
-
-	schema, name, err := SchemaName(tableName)
-	if err != nil {
-		return nil, err
-	}
-
-	r, err := db.Query(
-		`select 
-		i.name,
-		i.is_unique,
-		i.type_desc
-	 from
-		sys.indexes i
-		inner join sys.tables t on t.object_id = i.object_id
-		inner join sys.schemas s on s.schema_id = t.schema_id
-	where s.name = @s and 
-		  t.name = @n and 
-		  i.type <> 0 and
-		  is_primary_key = 0 and 
-		  is_unique_constraint = 0`, sql.Named("s", schema), sql.Named("n", name))
-	if err != nil {
-		return nil, err
-	}
-	tmp := list.New()
-
-	for r.Next() {
-		var k Index
-		err := r.Scan(&k.Name, &k.Is_unique, &k.Type)
-		if err != nil {
-			panic(err)
-		}
-		tmp.PushBack(k)
-	}
-
-	ret := make([]Index, tmp.Len())
-	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
-		c := x.Value.(Index)
-		r, err := db.Query(
-			`select
-				c.name, 
-				ic.is_descending_key, 
-				ic.is_included_column
-			from sys.indexes i
-				inner join sys.index_columns ic on ic.index_id = i.index_id and i.object_id = ic.object_id
-				inner join sys.columns c on c.column_id = ic.column_id and ic.object_id = c.object_id
-			where  i.name = @cname`, sql.Named("cname", c.Name))
-		if err != nil {
-			return nil, err
-		}
-		c.Columns, err = MapIxColumns(r)
-		if err != nil {
-			return nil, err
-		}
-		ret[i] = c
 	}
 
 	return ret, nil
@@ -338,7 +278,67 @@ func (m RemoteMsSql2017) GetAllPK(db *sql.DB, tableName string) (*PrimaryKey, er
 	return &ret, nil
 }
 
-func CsColumnToString(m RemoteMsSql2017, c ConstraintColumn) string {
+func (m RemoteMsSql2017) GetAllIx(db *sql.DB, tableName string) ([]Index, error) {
+
+	schema, name, err := SchemaName(tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := db.Query(
+		`select 
+		i.name,
+		i.is_unique,
+		i.type_desc
+	 from
+		sys.indexes i
+		inner join sys.tables t on t.object_id = i.object_id
+		inner join sys.schemas s on s.schema_id = t.schema_id
+	where s.name = @s and 
+		  t.name = @n and 
+		  i.type <> 0 and
+		  is_primary_key = 0 and 
+		  is_unique_constraint = 0`, sql.Named("s", schema), sql.Named("n", name))
+	if err != nil {
+		return nil, err
+	}
+	tmp := list.New()
+
+	for r.Next() {
+		var k Index
+		err := r.Scan(&k.Name, &k.Is_unique, &k.Type)
+		if err != nil {
+			panic(err)
+		}
+		tmp.PushBack(k)
+	}
+
+	ret := make([]Index, tmp.Len())
+	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
+		c := x.Value.(Index)
+		r, err := db.Query(
+			`select
+				c.name, 
+				ic.is_descending_key, 
+				ic.is_included_column
+			from sys.indexes i
+				inner join sys.index_columns ic on ic.index_id = i.index_id and i.object_id = ic.object_id
+				inner join sys.columns c on c.column_id = ic.column_id and ic.object_id = c.object_id
+			where  i.name = @cname`, sql.Named("cname", c.Name))
+		if err != nil {
+			return nil, err
+		}
+		c.Columns, err = MapIxColumns(r)
+		if err != nil {
+			return nil, err
+		}
+		ret[i] = c
+	}
+
+	return ret, nil
+}
+
+func CColumnToString(m RemoteMsSql2017, c ConstraintColumn) string {
 	ret := c.Name
 	if c.Is_descending {
 		ret += " DESC"
@@ -407,99 +407,6 @@ func (m RemoteMsSql2017) ColumnToString(column *Column) (string, error) {
 	}
 
 	return cs, nil
-}
-
-func (m RemoteMsSql2017) FkToString(fk *ForeignKey) (string, error) {
-	if fk.Name == "" {
-		return "", fmt.Errorf("foreign key name was empty")
-	}
-
-	if fk.Ref_table == "" {
-		return "", fmt.Errorf("foreign key table was empty")
-	}
-
-	if fk.Ref_columns == nil || len(fk.Ref_columns) == 0 {
-		return "", fmt.Errorf("foreign key reference column was empty")
-	}
-
-	if fk.Columns == nil || len(fk.Columns) < 1 {
-		return "", fmt.Errorf("foreign key columns were not provided")
-	}
-
-	ret := "CONSTRAINT " + fk.Name + " FOREIGN KEY ("
-
-	for i := 0; i < len(fk.Columns); i++ {
-		ret += CsColumnToString(m, fk.Columns[i]) + ","
-	}
-
-	ret = strings.TrimSuffix(ret, ",")
-
-	ret += ") REFERENCES " + fk.Ref_table + " ("
-
-	for i := 0; i < len(fk.Ref_columns); i++ {
-		ret += CsColumnToString(m, fk.Ref_columns[i]) + ","
-	}
-
-	ret = strings.TrimSuffix(ret, ",")
-	ret += ")"
-
-	return ret, nil
-}
-
-func (m RemoteMsSql2017) PkToString(pk *PrimaryKey) (string, error) {
-	if pk.Name == "" {
-		return "", fmt.Errorf("pk name was empty")
-	}
-
-	if pk.Columns == nil || len(pk.Columns) < 1 {
-		return "", fmt.Errorf("invalid columns for primary key")
-	}
-
-	ret := "CONSTRAINT " + pk.Name + " PRIMARY KEY ("
-
-	for i := 0; i < len(pk.Columns); i++ {
-		ret += CsColumnToString(m, pk.Columns[i]) + ","
-	}
-	ret = strings.TrimSuffix(ret, ",")
-
-	ret += ")"
-
-	return ret, nil
-}
-
-func (m RemoteMsSql2017) UniqueToString(c *Unique) (string, error) {
-	if c.Name == "" {
-		return "", fmt.Errorf("pk name was empty")
-	}
-
-	if c.Columns == nil || len(c.Columns) < 1 {
-		return "", fmt.Errorf("invalid columns for constraint")
-	}
-
-	ret := "CONSTRAINT " + c.Name + " UNIQUE ("
-
-	for i := 0; i < len(c.Columns); i++ {
-		ret += CsColumnToString(m, c.Columns[i]) + ","
-	}
-	ret = strings.TrimSuffix(ret, ",")
-
-	ret += ")"
-
-	return ret, nil
-}
-
-func (m RemoteMsSql2017) CheckToString(c *Check) (string, error) {
-	if c.Name == "" {
-		return "", fmt.Errorf("check constraint name was empty")
-	}
-
-	ret := "CONSTRAINT " + c.Name + " CHECK ("
-
-	ret += c.Def
-
-	ret += ")"
-
-	return ret, nil
 }
 
 func (m RemoteMsSql2017) AddIxToString(tableName string, ix *Index) (string, error) {
@@ -573,7 +480,7 @@ func AddConstraint(m RemoteMsSql2017, tableName string, c *Constraint, cType str
 	var ret string
 	ret += "ALTER TABLE " + tableName + " ADD CONSTRAINT " + c.Name + " " + strings.ToUpper(cType) + " ("
 	for z := 0; z < len(c.Columns); z++ {
-		ret += CsColumnToString(m, c.Columns[z]) + ","
+		ret += CColumnToString(m, c.Columns[z]) + ","
 	}
 	ret = strings.TrimSuffix(ret, ",")
 	ret += ");\n"
@@ -592,13 +499,13 @@ func (m RemoteMsSql2017) AddFkToString(tableName string, fk *ForeignKey) (string
 	var ret string
 	ret += "ALTER TABLE " + tableName + " ADD CONSTRAINT " + fk.Name + " FOREIGN KEY ("
 	for z := 0; z < len(fk.Columns); z++ {
-		ret += CsColumnToString(m, fk.Columns[z])
+		ret += CColumnToString(m, fk.Columns[z])
 	}
 	ret = strings.TrimSuffix(ret, ",")
 	ret += " ) REFERENCES " + fk.Ref_table + " ( "
 
 	for z := 0; z < len(fk.Ref_columns); z++ {
-		ret += CsColumnToString(m, fk.Ref_columns[z])
+		ret += CColumnToString(m, fk.Ref_columns[z])
 	}
 	ret = strings.TrimSuffix(ret, ",")
 
@@ -633,6 +540,7 @@ func (m RemoteMsSql2017) AddColumnToString(tableName string, c *Column) (string,
 	if c.Is_Identity {
 		s += " IDENTITY"
 	}
+
 	return "ALTER TABLE " + tableName + " ADD " + s + ";\n", nil
 }
 
@@ -649,9 +557,6 @@ func (m RemoteMsSql2017) AlterColumnToString(tableName string, c *Column) (strin
 		s += " NOT NULL"
 	}
 
-	if c.Is_Identity {
-		s += " IDENTITY"
-	}
 	return "ALTER TABLE " + tableName + " ALTER COLUMN " + s + ";\n", nil
 }
 

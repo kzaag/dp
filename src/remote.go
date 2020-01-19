@@ -22,10 +22,6 @@ type Remote interface {
 	// table definition to string
 
 	ColumnToString(*Column) (string, error)
-	//FkToString(*ForeignKey) (string, error)
-	//PkToString(*PrimaryKey) (string, error)
-	//UniqueToString(c *Unique) (string, error)
-	//CheckToString(c *Check) (string, error)
 
 	// add index on table
 
