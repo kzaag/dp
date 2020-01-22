@@ -144,19 +144,13 @@ func MergeColumns(
 					}
 					MergeAddOperation(drop, d)
 					MergeAddOperation(create, c)
-
-					if err = MergeRecreateColRefs(remote, newTables, create, drefs); err != nil {
-						return err
-					}
-					continue
-				}
-
-				if s, err := remote.AlterColumnToString(userT.Name, &uc); err != nil {
-					return err
 				} else {
-					MergeAddOperation(create, s)
+					if s, err := remote.AlterColumnToString(userT.Name, &uc); err != nil {
+						return err
+					} else {
+						MergeAddOperation(create, s)
+					}
 				}
-
 				if err = MergeRecreateColRefs(remote, newTables, create, drefs); err != nil {
 					return err
 				}
@@ -175,11 +169,18 @@ func MergeColumns(
 		if exists {
 			continue
 		}
+		drefs, err := MergeDropColRefs(remote, dbT.Columns[i], *dbT, oldTables, drop)
+		if err != nil {
+			return err
+		}
 		s, err := remote.DropColumnToString(userT.Name, &dbT.Columns[i])
 		if err != nil {
 			return err
 		}
 		MergeAddOperation(drop, s)
+		if err = MergeRecreateColRefs(remote, newTables, create, drefs); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -472,21 +473,33 @@ func MergeFK(
 const (
 	DC_TYPE_PK = iota
 	DC_TYPE_FK = iota
+	DC_TYPE_UQ = iota
+	DC_TYPE_CH = iota
 )
 
 type MergeDropBuff struct {
 	Table   string
+	Type    uint
 	Foreign *ForeignKey
 	Primary *PrimaryKey
-	Type    uint
+	Unique  *Unique
+	Check   *Check
 }
 
-func MergeNewDropBuffFk(tableName string, fk *ForeignKey) MergeDropBuff {
-	return MergeDropBuff{tableName, fk, nil, DC_TYPE_FK}
+func MergeNewDropFk(tableName string, fk *ForeignKey) MergeDropBuff {
+	return MergeDropBuff{tableName, DC_TYPE_FK, fk, nil, nil, nil}
 }
 
-func MergeNewDropBuffPk(tableName string, pk *PrimaryKey) MergeDropBuff {
-	return MergeDropBuff{tableName, nil, pk, DC_TYPE_PK}
+func MergeNewDropPk(tableName string, pk *PrimaryKey) MergeDropBuff {
+	return MergeDropBuff{tableName, DC_TYPE_PK, nil, pk, nil, nil}
+}
+
+func MergeNewDropUq(tablename string, u *Unique) MergeDropBuff {
+	return MergeDropBuff{tablename, DC_TYPE_UQ, nil, nil, u, nil}
+}
+
+func MergeNewDropCh(tablename string, c *Check) MergeDropBuff {
+	return MergeDropBuff{tablename, DC_TYPE_CH, nil, nil, nil, c}
 }
 
 func (d MergeDropBuff) IsPk() bool {
@@ -497,21 +510,33 @@ func (d MergeDropBuff) IsFk() bool {
 	return d.Type == DC_TYPE_FK
 }
 
-func (d MergeDropBuff) Recreate(remote Remote, create *string) error {
-	var op string
-	var err error
-	switch d.Type {
-	case DC_TYPE_FK:
-		op, err = remote.AddFkToString(d.Table, d.Foreign)
-	case DC_TYPE_PK:
-		op, err = remote.AddPkToString(d.Table, d.Primary)
-	}
-	if err != nil {
-		return err
-	}
-	MergeAddOperation(create, op)
-	return nil
+func (d MergeDropBuff) IsUq() bool {
+	return d.Type == DC_TYPE_UQ
 }
+
+func (d MergeDropBuff) IsCh() bool {
+	return d.Type == DC_TYPE_CH
+}
+
+// func (d MergeDropBuff) Recreate(remote Remote, create *string) error {
+// 	var op string
+// 	var err error
+// 	switch d.Type {
+// 	case DC_TYPE_FK:
+// 		op, err = remote.AddFkToString(d.Table, d.Foreign)
+// 	case DC_TYPE_PK:
+// 		op, err = remote.AddPkToString(d.Table, d.Primary)
+// 	case DC_TYPE_CH:
+// 		op, err = remote.AddCheckToString(d.Table, d.Check)
+// 	case DC_TYPE_UQ:
+// 		op, err = remote.AddUniqueToString(d.Table, d.Unique)
+// 	}
+// 	if err != nil {
+// 		return err
+// 	}
+// 	MergeAddOperation(create, op)
+// 	return nil
+// }
 
 func MergeDropColRefs(remote Remote, col Column, table Table, tables []Table, drop *string) ([]MergeDropBuff, error) {
 	list := list.New()
@@ -531,7 +556,27 @@ func MergeDropColRefs(remote Remote, col Column, table Table, tables []Table, dr
 					return nil, err
 				}
 				MergeAddOperation(drop, d)
-				list.PushBack(MergeNewDropBuffPk(table.Name, table.Primary))
+				list.PushBack(MergeNewDropPk(table.Name, table.Primary))
+			}
+		}
+	}
+
+	if table.Unique != nil {
+		for i := 0; i < len(table.Unique); i++ {
+			c := table.Unique[i]
+			if c.Columns == nil {
+				continue
+			}
+			for j := 0; j < len(c.Columns); j++ {
+				cc := c.Columns[j]
+				if cc.Name == col.Name {
+					d, err := remote.DropCsToString(table.Name, &c.Constraint)
+					if err != nil {
+						return nil, err
+					}
+					MergeAddOperation(drop, d)
+					list.PushBack(MergeNewDropUq(table.Name, &c))
+				}
 			}
 		}
 	}
@@ -575,7 +620,7 @@ func MergeRecreateColRefs(remote Remote, tables []Table, create *string, dc []Me
 			if dropBuff.IsPk() {
 				if table.Primary != nil {
 					pk := table.Primary
-					if pk != nil && pk.Name == dropBuff.Primary.Name {
+					if pk.Name == dropBuff.Primary.Name {
 						if s, err := remote.AddPkToString(table.Name, pk); err != nil {
 							return err
 						} else {
@@ -584,6 +629,22 @@ func MergeRecreateColRefs(remote Remote, tables []Table, create *string, dc []Me
 					}
 				}
 				continue
+			}
+
+			if dropBuff.IsUq() {
+				if table.Unique != nil {
+					u := table.Unique
+					for z := 0; z < len(u); z++ {
+						uu := u[z]
+						if uu.Name == dropBuff.Unique.Name {
+							if s, err := remote.AddUniqueToString(table.Name, &uu); err != nil {
+								return err
+							} else {
+								MergeAddOperation(create, s)
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -614,7 +675,7 @@ func MergeDropPkRefs(remote Remote, tableName string, tables []Table, drop *stri
 					return nil, err
 				}
 				MergeAddOperation(drop, s)
-				ret[lastix] = MergeNewDropBuffFk(tables[i].Name, &fks[j])
+				ret[lastix] = MergeNewDropFk(tables[i].Name, &fks[j])
 				lastix++
 			}
 		}
