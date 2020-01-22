@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/denisenkom/go-mssqldb"
 )
@@ -82,6 +83,25 @@ func DpStdoutWriteTables(remote Remote, tables []Table, dir string, format uint)
 	return nil
 }
 
+func DpExecuteCmdsVerbose(db *sql.DB, cmds string) error {
+	cc := strings.Split(cmds, ";\n")
+	for i := 0; i < len(cc); i++ {
+		if cc[i] == "" {
+			continue
+		}
+		fmt.Println(cc[i])
+		start := time.Now()
+		_, err := db.Exec(cc[i])
+		if err != nil {
+			fmt.Println("\033[4;31mError " + err.Error() + "\033[0m")
+			return fmt.Errorf("")
+		}
+		elapsed := time.Since(start)
+		fmt.Println("\033[4;32mQuery completed in " + elapsed.String() + "\033[0m")
+	}
+	return nil
+}
+
 func DpExecuteCmds(db *sql.DB, cmds string) error {
 	cc := strings.Split(cmds, ";\n")
 	for i := 0; i < len(cc); i++ {
@@ -147,6 +167,7 @@ func Program() error {
 	f := flag.Uint("f", F_SQL, "available import formats: json="+strconv.Itoa(F_JSON)+", sql="+strconv.Itoa(F_SQL))
 	c := flag.String("c", "main.conf", "config path")
 	e := flag.Bool("e", false, "execute, if not specified then this is dry run")
+	v := flag.Bool("v", false, "verbose - report progress as program runs")
 
 	flag.Parse()
 
@@ -201,8 +222,23 @@ func Program() error {
 		}
 
 		if *e {
-			if err = DpExecuteCmds(db, s); err != nil {
-				return err
+			if *v {
+				start := time.Now()
+				if err = DpExecuteCmdsVerbose(db, s); err != nil {
+					fmt.Println("\033[0;31mcouldnt complete deploy. current difference in schema:\033[0m")
+					s, err := MergeTablesStr(remote, db, t)
+					if err != nil {
+						return err
+					}
+					fmt.Print(s)
+					return err
+				}
+				elapsed := time.Since(start)
+				fmt.Printf("Completed in %s. Database is up to date\n", elapsed.String())
+			} else {
+				if err = DpExecuteCmds(db, s); err != nil {
+					return err
+				}
 			}
 		} else {
 			fmt.Print(s)
@@ -225,7 +261,9 @@ func Program() error {
 				}
 				fmt.Println(string(bf))
 			}
-			fmt.Println("will be written into " + path)
+			if *v {
+				fmt.Println("will be written into " + path)
+			}
 		}
 	default:
 		flag.Usage()
