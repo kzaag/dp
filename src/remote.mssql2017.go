@@ -346,7 +346,7 @@ func CColumnToString(m RemoteMsSql2017, c ConstraintColumn) string {
 	return ret
 }
 
-func ColumnTypeToString(column *Column) (string, error) {
+func ColumnTypeToString(column *Column) string {
 	cs := ""
 	switch strings.ToLower(column.Type) {
 	case "nvarchar":
@@ -384,19 +384,15 @@ func ColumnTypeToString(column *Column) (string, error) {
 	default:
 		panic("no mssql mapper for type : " + strings.ToLower(column.Type))
 	}
-	return cs, nil
+	return cs
 }
 
-func (m RemoteMsSql2017) ColumnToString(column *Column) (string, error) {
+func (m RemoteMsSql2017) ColumnToString(column *Column) string {
 	var cs string
 
 	cs += column.Name + " "
 
-	c, e := ColumnTypeToString(column)
-	if e != nil {
-		return "", e
-	}
-	cs += c
+	cs += ColumnTypeToString(column)
 
 	if !column.Is_nullable {
 		cs += " NOT NULL"
@@ -406,10 +402,10 @@ func (m RemoteMsSql2017) ColumnToString(column *Column) (string, error) {
 		cs += " IDENTITY"
 	}
 
-	return cs, nil
+	return cs
 }
 
-func (m RemoteMsSql2017) AddIxToString(tableName string, ix *Index) (string, error) {
+func (m RemoteMsSql2017) AddIxToString(tableName string, ix *Index) string {
 	unique := ""
 	if ix.Is_unique {
 		unique = "UNIQUE "
@@ -424,10 +420,6 @@ func (m RemoteMsSql2017) AddIxToString(tableName string, ix *Index) (string, err
 		"CREATE " + unique +
 			t + "INDEX " +
 			ix.Name + " ON " + tableName + " ("
-
-	if ix.Columns == nil {
-		return "", fmt.Errorf("on index: " + ix.Name + " no columns specified")
-	}
 
 	for i := 0; i < len(ix.Columns); i++ {
 		c := ix.Columns[i]
@@ -466,17 +458,14 @@ func (m RemoteMsSql2017) AddIxToString(tableName string, ix *Index) (string, err
 
 	ret += ";\n"
 
-	return ret, nil
+	return ret
 }
 
-func (m RemoteMsSql2017) DropConstraint(tableName string, c *Constraint) (string, error) {
-	if c.Name == "" {
-		return "", fmt.Errorf("no constraint name provided")
-	}
-	return "ALTER TABLE " + tableName + " DROP CONSTRAINT " + c.Name + ";\n", nil
+func (m RemoteMsSql2017) DropConstraint(tableName string, c *Constraint) string {
+	return "ALTER TABLE " + tableName + " DROP CONSTRAINT " + c.Name + ";\n"
 }
 
-func AddConstraint(m RemoteMsSql2017, tableName string, c *Constraint, cType string) (string, error) {
+func AddConstraint(m RemoteMsSql2017, tableName string, c *Constraint, cType string) string {
 	var ret string
 	ret += "ALTER TABLE " + tableName + " ADD CONSTRAINT " + c.Name + " " + strings.ToUpper(cType) + " ("
 	for z := 0; z < len(c.Columns); z++ {
@@ -484,18 +473,18 @@ func AddConstraint(m RemoteMsSql2017, tableName string, c *Constraint, cType str
 	}
 	ret = strings.TrimSuffix(ret, ",")
 	ret += ");\n"
-	return ret, nil
+	return ret
 }
 
-func (m RemoteMsSql2017) AddUniqueToString(tableName string, c *Unique) (string, error) {
+func (m RemoteMsSql2017) AddUniqueToString(tableName string, c *Unique) string {
 	return AddConstraint(m, tableName, &c.Constraint, "unique")
 }
 
-func (m RemoteMsSql2017) AddPkToString(tableName string, pk *PrimaryKey) (string, error) {
+func (m RemoteMsSql2017) AddPkToString(tableName string, pk *PrimaryKey) string {
 	return AddConstraint(m, tableName, &pk.Constraint, "primary key")
 }
 
-func (m RemoteMsSql2017) AddFkToString(tableName string, fk *ForeignKey) (string, error) {
+func (m RemoteMsSql2017) AddFkToString(tableName string, fk *ForeignKey) string {
 	var ret string
 	ret += "ALTER TABLE " + tableName + " ADD CONSTRAINT " + fk.Name + " FOREIGN KEY ("
 	for z := 0; z < len(fk.Columns); z++ {
@@ -510,28 +499,21 @@ func (m RemoteMsSql2017) AddFkToString(tableName string, fk *ForeignKey) (string
 	ret = strings.TrimSuffix(ret, ",")
 
 	ret += " );\n"
-	return ret, nil
+	return ret
 }
 
-func (m RemoteMsSql2017) AddCheckToString(tableName string, c *Check) (string, error) {
-	return "ALTER TABLE " + tableName + " ADD CONSTRAINT " + c.Name + " CHECK (" + c.Def + ");\n", nil
+func (m RemoteMsSql2017) AddCheckToString(tableName string, c *Check) string {
+	return "ALTER TABLE " + tableName + " ADD CONSTRAINT " + c.Name + " CHECK (" + c.Def + ");\n"
 }
 
-func (m RemoteMsSql2017) DropCsToString(tableName string, c *Constraint) (string, error) {
-	if c.Name == "" {
-		return "", fmt.Errorf("constraint name was empty")
-	}
-	return "ALTER TABLE " + tableName + " DROP CONSTRAINT " + c.Name + ";\n", nil
+func (m RemoteMsSql2017) DropCsToString(tableName string, c *Constraint) string {
+	return "ALTER TABLE " + tableName + " DROP CONSTRAINT " + c.Name + ";\n"
 }
 
-func (m RemoteMsSql2017) AddColumnToString(tableName string, c *Column) (string, error) {
+func (m RemoteMsSql2017) AddColumnToString(tableName string, c *Column) string {
 	s := c.Name + " "
 
-	cc, e := ColumnTypeToString(c)
-	if e != nil {
-		return "", e
-	}
-	s += cc
+	s += ColumnTypeToString(c)
 
 	if !c.Is_nullable {
 		s += " NOT NULL"
@@ -541,29 +523,25 @@ func (m RemoteMsSql2017) AddColumnToString(tableName string, c *Column) (string,
 		s += " IDENTITY"
 	}
 
-	return "ALTER TABLE " + tableName + " ADD " + s + ";\n", nil
+	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
 }
 
-func (m RemoteMsSql2017) AlterColumnToString(tableName string, c *Column) (string, error) {
+func (m RemoteMsSql2017) AlterColumnToString(tableName string, c *Column) string {
 	s := c.Name + " "
 
-	cc, e := ColumnTypeToString(c)
-	if e != nil {
-		return "", e
-	}
-	s += cc
+	s += ColumnTypeToString(c)
 
 	if !c.Is_nullable {
 		s += " NOT NULL"
 	}
 
-	return "ALTER TABLE " + tableName + " ALTER COLUMN " + s + ";\n", nil
+	return "ALTER TABLE " + tableName + " ALTER COLUMN " + s + ";\n"
 }
 
-func (m RemoteMsSql2017) DropColumnToString(tableName string, c *Column) (string, error) {
-	return "ALTER TABLE " + tableName + " DROP COLUMN " + c.Name + ";\n", nil
+func (m RemoteMsSql2017) DropColumnToString(tableName string, c *Column) string {
+	return "ALTER TABLE " + tableName + " DROP COLUMN " + c.Name + ";\n"
 }
 
-func (m RemoteMsSql2017) DropIxToString(tableName string, c *Index) (string, error) {
-	return "DROP INDEX " + c.Name + " ON " + tableName + ";\n", nil
+func (m RemoteMsSql2017) DropIxToString(tableName string, c *Index) string {
+	return "DROP INDEX " + c.Name + " ON " + tableName + ";\n"
 }

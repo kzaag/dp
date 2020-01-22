@@ -38,8 +38,8 @@ func DpTableString(remote Remote, t Table, f uint) ([]byte, error) {
 	default:
 		return json.MarshalIndent(t, "", "\t")
 	case F_SQL:
-		b, err := RemoteTableToString(remote, &t)
-		return []byte(b), err
+		b := RemoteTableToString(remote, &t)
+		return []byte(b), nil
 	}
 }
 
@@ -225,7 +225,7 @@ func Program() error {
 			if *v {
 				start := time.Now()
 				if err = DpExecuteCmdsVerbose(db, s); err != nil {
-					fmt.Println("\033[0;31mcouldnt complete deploy. current difference in schema:\033[0m")
+					fmt.Println("\033[0;31mcouldnt complete deploy. statements remaining:\033[0m")
 					s, err := MergeTablesStr(remote, db, t)
 					if err != nil {
 						return err

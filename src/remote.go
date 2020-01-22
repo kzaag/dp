@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"strings"
 )
 
@@ -21,29 +20,29 @@ type Remote interface {
 
 	// table definition to string
 
-	ColumnToString(*Column) (string, error)
+	ColumnToString(*Column) string
 
 	// add index on table
 
-	AddIxToString(tableName string, ix *Index) (string, error)
+	AddIxToString(tableName string, ix *Index) string
 
 	// alter table add constraints
 
-	AddUniqueToString(tableName string, c *Unique) (string, error)
-	AddPkToString(tableName string, c *PrimaryKey) (string, error)
-	AddFkToString(tableName string, fk *ForeignKey) (string, error)
-	AddCheckToString(tableName string, c *Check) (string, error)
+	AddUniqueToString(tableName string, c *Unique) string
+	AddPkToString(tableName string, c *PrimaryKey) string
+	AddFkToString(tableName string, fk *ForeignKey) string
+	AddCheckToString(tableName string, c *Check) string
 
 	// drop generic constraint
 
-	DropCsToString(tableName string, c *Constraint) (string, error)
-	DropIxToString(tableName string, c *Index) (string, error)
+	DropCsToString(tableName string, c *Constraint) string
+	DropIxToString(tableName string, c *Index) string
 
 	// add , alter , drop columns
 
-	AddColumnToString(tableName string, c *Column) (string, error)
-	AlterColumnToString(tableName string, c *Column) (string, error)
-	DropColumnToString(tableName string, c *Column) (string, error)
+	AddColumnToString(tableName string, c *Column) string
+	AlterColumnToString(tableName string, c *Column) string
+	DropColumnToString(tableName string, c *Column) string
 }
 
 func RemoteGetTableDefinition(remote Remote, db *sql.DB, name string) (*Table, error) {
@@ -132,77 +131,21 @@ func RemoteGetMatchTables(remote Remote, db *sql.DB, userTables []Table) ([]Tabl
 	return tbls, nil
 }
 
-func RemoteTableToString(remote Remote, tf *Table) (string, error) {
+func RemoteTableToString(remote Remote, tf *Table) string {
 	ret := ""
-
-	if tf.Name == "" {
-		return "", fmt.Errorf("table name was empty")
-	}
 
 	ret += "CREATE TABLE " + tf.Name + " ( \n"
 
 	if tf.Columns != nil {
 		for i := 0; i < len(tf.Columns); i++ {
 			column := tf.Columns[i]
-			columnStr, err := remote.ColumnToString(&column)
-			if err != nil {
-				return "", fmt.Errorf("table " + tf.Name + " : " + err.Error())
-			}
+			columnStr := remote.ColumnToString(&column)
 			ret += "\t" + columnStr + ",\n"
 		}
 	}
 
-	// if tf.Foreign != nil {
-	// 	for i := 0; i < len(tf.Foreign); i++ {
-	// 		fk := tf.Foreign[i]
-	// 		fkdef, err := remote.FkToString(&fk)
-	// 		if err != nil {
-	// 			return "", fmt.Errorf("table " + tf.Name + " : " + err.Error())
-	// 		}
-	// 		ret += "\t" + fkdef + ",\n"
-	// 	}
-	// }
-
-	// if tf.Primary != nil {
-	// 	pkdef, err := remote.PkToString(tf.Primary)
-	// 	if err != nil {
-	// 		return "", fmt.Errorf("table " + tf.Name + " : " + err.Error())
-	// 	}
-	// 	ret += "\t" + pkdef + ",\n"
-	// }
-
-	// if tf.Check != nil {
-	// 	for i := 0; i < len(tf.Check); i++ {
-	// 		ckdef, err := remote.CheckToString(&tf.Check[i])
-	// 		if err != nil {
-	// 			return "", fmt.Errorf("table " + tf.Name + " : " + err.Error())
-	// 		}
-	// 		ret += "\t" + ckdef + ",\n"
-	// 	}
-	// }
-
-	// if tf.Unique != nil {
-	// 	for i := 0; i < len(tf.Unique); i++ {
-	// 		udef, err := remote.UniqueToString(&tf.Unique[i])
-	// 		if err != nil {
-	// 			return "", fmt.Errorf("table " + tf.Name + " : " + err.Error())
-	// 		}
-	// 		ret += "\t" + udef + ",\n"
-	// 	}
-	// }
-
 	ret = strings.TrimSuffix(ret, ",\n")
 	ret += "\n);\n"
 
-	// if tf.Indexes != nil {
-	// 	for i := 0; i < len(tf.Indexes); i++ {
-	// 		udef, err := remote.AddIxToString(tf.Name, &tf.Indexes[i])
-	// 		if err != nil {
-	// 			return "", fmt.Errorf("table " + tf.Name + " : " + err.Error())
-	// 		}
-	// 		ret += udef
-	// 	}
-	// }
-
-	return ret, nil
+	return ret
 }
