@@ -31,19 +31,19 @@ func DpExt(f uint) string {
 	}
 }
 
-func DpTableString(remote Remote, t Table, f uint) ([]byte, error) {
+func DpTableString(dbms Rdbms, t Table, f uint) ([]byte, error) {
 	switch f {
 	case F_JSON:
 		fallthrough
 	default:
 		return json.MarshalIndent(t, "", "\t")
 	case F_SQL:
-		b := RemoteTableToString(remote, &t)
+		b := dbms.TableDef(t)
 		return []byte(b), nil
 	}
 }
 
-func DpStdoutWriteTables(remote Remote, tables []Table, dir string, format uint) error {
+func DpStdoutWriteTables(dbms Rdbms, tables []Table, dir string, format uint) error {
 	if dir != "" {
 		fs, err := os.Stat(dir)
 		if err != nil && os.IsNotExist(err) {
@@ -61,7 +61,7 @@ func DpStdoutWriteTables(remote Remote, tables []Table, dir string, format uint)
 			if err != nil {
 				return err
 			}
-			def, err := DpTableString(remote, tables[i], format)
+			def, err := DpTableString(dbms, tables[i], format)
 			if err != nil {
 				return err
 			}
@@ -73,7 +73,7 @@ func DpStdoutWriteTables(remote Remote, tables []Table, dir string, format uint)
 	} else {
 		for i := 0; i < len(tables); i++ {
 			var def []byte
-			def, err := DpTableString(remote, tables[i], format)
+			def, err := DpTableString(dbms, tables[i], format)
 			if err != nil {
 				return err
 			}
@@ -171,7 +171,7 @@ func Program() error {
 
 	flag.Parse()
 
-	var remote Remote = RemoteMsSql2017{}
+	var dbms Rdbms = RdbmsMssql()
 
 	conf := ConfNew()
 	if err := ConfInit(conf, *c); err != nil {
@@ -216,7 +216,7 @@ func Program() error {
 
 	switch *p {
 	case "merge":
-		s, err := MergeTablesStr(remote, db, t)
+		s, err := MergeRdbmsTables(dbms, db, t)
 		if err != nil {
 			return err
 		}
@@ -226,7 +226,7 @@ func Program() error {
 				start := time.Now()
 				if err = DpExecuteCmdsVerbose(db, s); err != nil {
 					fmt.Println("\033[0;31mcouldnt complete deploy. statements remaining:\033[0m")
-					s, err := MergeTablesStr(remote, db, t)
+					s, err := MergeRdbmsTables(dbms, db, t)
 					if err != nil {
 						return err
 					}
@@ -244,18 +244,18 @@ func Program() error {
 			fmt.Print(s)
 		}
 	case "import":
-		tbls, err := RemoteGetAllTables(remote, db)
+		tbls, err := RdbmsGetAllTables(dbms, db)
 		if err != nil {
 			return err
 		}
 		if *e {
-			err := DpStdoutWriteTables(remote, tbls, path, *f)
+			err := DpStdoutWriteTables(dbms, tbls, path, *f)
 			if err != nil {
 				return err
 			}
 		} else {
 			for i := 0; i < len(tbls); i++ {
-				bf, err := DpTableString(remote, tbls[i], *f)
+				bf, err := DpTableString(dbms, tbls[i], *f)
 				if err != nil {
 					return err
 				}

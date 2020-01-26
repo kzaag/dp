@@ -8,10 +8,8 @@ import (
 	"strings"
 )
 
-type RemoteMsSql2017 struct{}
-
 // split {schema}.{name} sql name into 2 parts
-func SchemaName(name string) (string, string, error) {
+func MssqlSchemaName(name string) (string, string, error) {
 	if name == "" || !strings.Contains(name, ".") {
 		return "", "", fmt.Errorf("invalid sql name. expected: {schema}.{name} got: \"" + name + "\"")
 	}
@@ -22,32 +20,24 @@ func SchemaName(name string) (string, string, error) {
 	return sn[0], sn[1], nil
 }
 
-func (m RemoteMsSql2017) GetAllTableName(db *sql.DB) ([]string, error) {
+func MssqlGetAllTableName(db *sql.DB) ([]string, error) {
+
 	r, err := db.Query(
 		"select s.name + '.' + t.name from sys.tables t inner join sys.schemas s on s.schema_id = t.schema_id")
 	if err != nil {
 		return nil, err
 	}
 
-	buff := list.New()
-	for r.Next() {
-		var t string
-		err := r.Scan(&t)
-		if err != nil {
-			return nil, err
-		}
-		buff.PushBack(t)
-	}
-
-	var ret = make([]string, buff.Len())
-	for i, x := 0, buff.Front(); i < buff.Len(); i, x = i+1, x.Next() {
-		ret[i] = x.Value.(string)
+	ret, err := RdbmsMapTNames(r)
+	if err != nil {
+		return nil, err
 	}
 
 	return ret, nil
 }
 
-func (m RemoteMsSql2017) GetAllUnique(db *sql.DB, tableName string) ([]Unique, error) {
+func MssqlGetAllUnique(db *sql.DB, tableName string) ([]Unique, error) {
+
 	r, err := db.Query(
 		`select kc.name
 		from sys.key_constraints kc
@@ -82,7 +72,7 @@ func (m RemoteMsSql2017) GetAllUnique(db *sql.DB, tableName string) ([]Unique, e
 		if err != nil {
 			return nil, err
 		}
-		c.Columns, err = MapConstraintCols(r)
+		c.Columns, err = RdbmsMapCColumns(r)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +82,8 @@ func (m RemoteMsSql2017) GetAllUnique(db *sql.DB, tableName string) ([]Unique, e
 	return ret, nil
 }
 
-func (m RemoteMsSql2017) GetAllCheck(db *sql.DB, tableName string) ([]Check, error) {
+func MssqlGetAllCheck(db *sql.DB, tableName string) ([]Check, error) {
+
 	r, err := db.Query(
 		`select
 			cc.name,
@@ -104,26 +95,16 @@ func (m RemoteMsSql2017) GetAllCheck(db *sql.DB, tableName string) ([]Check, err
 	if err != nil {
 		return nil, err
 	}
-	tmp := list.New()
 
-	for r.Next() {
-		var k Check
-		err := r.Scan(&k.Name, &k.Def)
-		if err != nil {
-			return nil, err
-		}
-		tmp.PushBack(k)
+	c, err := RdbmsMapCheck(r)
+	if err != nil {
+		return nil, err
 	}
 
-	cs := make([]Check, tmp.Len())
-	for i, x := 0, tmp.Front(); i < tmp.Len(); i, x = i+1, x.Next() {
-		cs[i] = x.Value.(Check)
-	}
-
-	return cs, nil
+	return c, nil
 }
 
-func (m RemoteMsSql2017) GetAllColumn(db *sql.DB, tableName string) ([]Column, error) {
+func MssqlGetAllColumn(db *sql.DB, tableName string) ([]Column, error) {
 	r, err := db.Query(
 		`select
 			c.name,
@@ -143,33 +124,15 @@ func (m RemoteMsSql2017) GetAllColumn(db *sql.DB, tableName string) ([]Column, e
 		return nil, err
 	}
 
-	buff := list.New()
-
-	for r.Next() {
-		var el Column
-		err := r.Scan(
-			&el.Name,
-			&el.Type,
-			&el.Max_length,
-			&el.Precision,
-			&el.Scale,
-			&el.Is_nullable,
-			&el.Is_Identity)
-		if err != nil {
-			return nil, err
-		}
-		buff.PushBack(el)
+	c, err := RdbmsMapColumns(r)
+	if err != nil {
+		return nil, err
 	}
 
-	var ret = make([]Column, buff.Len())
-	for i, x := 0, buff.Front(); i < buff.Len(); i, x = i+1, x.Next() {
-		ret[i] = x.Value.(Column)
-	}
-
-	return ret, nil
+	return c, nil
 }
 
-func (m RemoteMsSql2017) GetAllFK(db *sql.DB, tableName string) ([]ForeignKey, error) {
+func MssqlGetAllFK(db *sql.DB, tableName string) ([]ForeignKey, error) {
 	r, err := db.Query(
 		`select
 			s.name + '.' + t.name as ref_table,
@@ -207,7 +170,7 @@ func (m RemoteMsSql2017) GetAllFK(db *sql.DB, tableName string) ([]ForeignKey, e
 		if err != nil {
 			return nil, err
 		}
-		fk.Columns, err = MapConstraintCols(r)
+		fk.Columns, err = RdbmsMapCColumns(r)
 		if err != nil {
 			return nil, err
 		}
@@ -221,7 +184,7 @@ func (m RemoteMsSql2017) GetAllFK(db *sql.DB, tableName string) ([]ForeignKey, e
 		if err != nil {
 			return nil, err
 		}
-		fk.Ref_columns, err = MapConstraintCols(r)
+		fk.Ref_columns, err = RdbmsMapCColumns(r)
 		if err != nil {
 			return nil, err
 		}
@@ -231,7 +194,7 @@ func (m RemoteMsSql2017) GetAllFK(db *sql.DB, tableName string) ([]ForeignKey, e
 	return ret, nil
 }
 
-func (m RemoteMsSql2017) GetAllPK(db *sql.DB, tableName string) (*PrimaryKey, error) {
+func MssqlGetAllPK(db *sql.DB, tableName string) (*PrimaryKey, error) {
 	r, err := db.Query(`
 	SELECT
 	c.name
@@ -258,19 +221,9 @@ func (m RemoteMsSql2017) GetAllPK(db *sql.DB, tableName string) (*PrimaryKey, er
 		inner join sys.columns c on c.column_id = ic.column_id and ic.object_id = c.object_id
 	where i.is_primary_key = 1 and i.name = @pkname`, sql.Named("pkname", ret.Name))
 
-	tmp := list.New()
-
-	for r.Next() {
-		var column ConstraintColumn
-		if err := r.Scan(&column.Name, &column.Is_descending); err != nil {
-			return nil, err
-		}
-		tmp.PushBack(column)
-	}
-
-	cols := make([]ConstraintColumn, tmp.Len())
-	for i, x := 0, tmp.Front(); i < tmp.Len(); i, x = i+1, x.Next() {
-		cols[i] = x.Value.(ConstraintColumn)
+	cols, err := RdbmsMapCColumns(r)
+	if err != nil {
+		return nil, err
 	}
 
 	ret.Columns = cols
@@ -278,9 +231,9 @@ func (m RemoteMsSql2017) GetAllPK(db *sql.DB, tableName string) (*PrimaryKey, er
 	return &ret, nil
 }
 
-func (m RemoteMsSql2017) GetAllIx(db *sql.DB, tableName string) ([]Index, error) {
+func MssqlGetAllIx(db *sql.DB, tableName string) ([]Index, error) {
 
-	schema, name, err := SchemaName(tableName)
+	schema, name, err := MssqlSchemaName(tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +281,7 @@ func (m RemoteMsSql2017) GetAllIx(db *sql.DB, tableName string) ([]Index, error)
 		if err != nil {
 			return nil, err
 		}
-		c.Columns, err = MapIxColumns(r)
+		c.Columns, err = RdbmsMapIxColumns(r)
 		if err != nil {
 			return nil, err
 		}
@@ -338,15 +291,7 @@ func (m RemoteMsSql2017) GetAllIx(db *sql.DB, tableName string) ([]Index, error)
 	return ret, nil
 }
 
-func CColumnToString(m RemoteMsSql2017, c ConstraintColumn) string {
-	ret := c.Name
-	if c.Is_descending {
-		ret += " DESC"
-	}
-	return ret
-}
-
-func ColumnTypeToString(column *Column) string {
+func MssqlColumnType(column *Column) string {
 	cs := ""
 	switch strings.ToLower(column.Type) {
 	case "nvarchar":
@@ -387,12 +332,12 @@ func ColumnTypeToString(column *Column) string {
 	return cs
 }
 
-func (m RemoteMsSql2017) ColumnToString(column *Column) string {
+func MssqlColumn(column *Column) string {
 	var cs string
 
 	cs += column.Name + " "
 
-	cs += ColumnTypeToString(column)
+	cs += MssqlColumnType(column)
 
 	if !column.Is_nullable {
 		cs += " NOT NULL"
@@ -405,115 +350,10 @@ func (m RemoteMsSql2017) ColumnToString(column *Column) string {
 	return cs
 }
 
-func (m RemoteMsSql2017) AddIxToString(tableName string, ix *Index) string {
-	unique := ""
-	if ix.Is_unique {
-		unique = "UNIQUE "
-	}
-
-	t := "NONCLUSTERED "
-	if ix.Type != "" {
-		t = strings.ToUpper(ix.Type) + " "
-	}
-
-	ret :=
-		"CREATE " + unique +
-			t + "INDEX " +
-			ix.Name + " ON " + tableName + " ("
-
-	for i := 0; i < len(ix.Columns); i++ {
-		c := ix.Columns[i]
-		if c.Is_Included_column {
-			continue
-		}
-		ret += c.Name
-		if c.Is_descending {
-			ret += " DESC"
-		}
-	}
-
-	ret += ")"
-
-	var includes bool = false
-	for i := 0; i < len(ix.Columns); i++ {
-		c := ix.Columns[i]
-		if !c.Is_Included_column {
-			continue
-		}
-
-		if !includes {
-			ret += " INCLUDE ("
-		}
-		includes = true
-
-		ret += c.Name
-		if c.Is_descending {
-			ret += " DESC"
-		}
-	}
-
-	if includes {
-		ret += ")"
-	}
-
-	ret += ";\n"
-
-	return ret
-}
-
-func (m RemoteMsSql2017) DropConstraint(tableName string, c *Constraint) string {
-	return "ALTER TABLE " + tableName + " DROP CONSTRAINT " + c.Name + ";\n"
-}
-
-func AddConstraint(m RemoteMsSql2017, tableName string, c *Constraint, cType string) string {
-	var ret string
-	ret += "ALTER TABLE " + tableName + " ADD CONSTRAINT " + c.Name + " " + strings.ToUpper(cType) + " ("
-	for z := 0; z < len(c.Columns); z++ {
-		ret += CColumnToString(m, c.Columns[z]) + ","
-	}
-	ret = strings.TrimSuffix(ret, ",")
-	ret += ");\n"
-	return ret
-}
-
-func (m RemoteMsSql2017) AddUniqueToString(tableName string, c *Unique) string {
-	return AddConstraint(m, tableName, &c.Constraint, "unique")
-}
-
-func (m RemoteMsSql2017) AddPkToString(tableName string, pk *PrimaryKey) string {
-	return AddConstraint(m, tableName, &pk.Constraint, "primary key")
-}
-
-func (m RemoteMsSql2017) AddFkToString(tableName string, fk *ForeignKey) string {
-	var ret string
-	ret += "ALTER TABLE " + tableName + " ADD CONSTRAINT " + fk.Name + " FOREIGN KEY ("
-	for z := 0; z < len(fk.Columns); z++ {
-		ret += CColumnToString(m, fk.Columns[z])
-	}
-	ret = strings.TrimSuffix(ret, ",")
-	ret += " ) REFERENCES " + fk.Ref_table + " ( "
-
-	for z := 0; z < len(fk.Ref_columns); z++ {
-		ret += CColumnToString(m, fk.Ref_columns[z])
-	}
-	ret = strings.TrimSuffix(ret, ",")
-
-	ret += " );\n"
-	return ret
-}
-
-func (m RemoteMsSql2017) AddCheckToString(tableName string, c *Check) string {
-	return "ALTER TABLE " + tableName + " ADD CONSTRAINT " + c.Name + " CHECK (" + c.Def + ");\n"
-}
-
-func (m RemoteMsSql2017) DropCsToString(tableName string, c *Constraint) string {
-	return "ALTER TABLE " + tableName + " DROP CONSTRAINT " + c.Name + ";\n"
-}
-
-func (m RemoteMsSql2017) AddColumnToString(tableName string, c *Column) string {
+func MssqlAddColumn(tableName string, c *Column) string {
 	s := c.Name + " "
 
-	s += ColumnTypeToString(c)
+	s += MssqlColumnType(c)
 
 	if !c.Is_nullable {
 		s += " NOT NULL"
@@ -526,10 +366,10 @@ func (m RemoteMsSql2017) AddColumnToString(tableName string, c *Column) string {
 	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
 }
 
-func (m RemoteMsSql2017) AlterColumnToString(tableName string, c *Column) string {
+func MssqlAlterColumn(tableName string, c *Column) string {
 	s := c.Name + " "
 
-	s += ColumnTypeToString(c)
+	s += MssqlColumnType(c)
 
 	if !c.Is_nullable {
 		s += " NOT NULL"
@@ -538,10 +378,67 @@ func (m RemoteMsSql2017) AlterColumnToString(tableName string, c *Column) string
 	return "ALTER TABLE " + tableName + " ALTER COLUMN " + s + ";\n"
 }
 
-func (m RemoteMsSql2017) DropColumnToString(tableName string, c *Column) string {
-	return "ALTER TABLE " + tableName + " DROP COLUMN " + c.Name + ";\n"
+func MssqlTableDef(t Table) string {
+	ret := ""
+
+	ret += "CREATE TABLE " + t.Name + " ( \n"
+
+	if t.Columns != nil {
+		for i := 0; i < len(t.Columns); i++ {
+			column := t.Columns[i]
+			columnStr := MssqlColumnType(&column)
+			ret += "\t" + columnStr + ",\n"
+		}
+	}
+
+	ret = strings.TrimSuffix(ret, ",\n")
+	ret += "\n);\n"
+
+	return ret
 }
 
-func (m RemoteMsSql2017) DropIxToString(tableName string, c *Index) string {
-	return "DROP INDEX " + c.Name + " ON " + tableName + ";\n"
+func MssqlGetTableDef(db *sql.DB, name string) (*Table, error) {
+	cols, err := MssqlGetAllColumn(db, name)
+	if err != nil {
+		return nil, err
+	}
+	if cols == nil || len(cols) == 0 {
+		return nil, nil
+	}
+
+	pk, err := MssqlGetAllPK(db, name)
+	if err != nil {
+		return nil, err
+	}
+
+	fks, err := MssqlGetAllFK(db, name)
+	if err != nil {
+		return nil, err
+	}
+
+	uq, err := MssqlGetAllUnique(db, name)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := MssqlGetAllCheck(db, name)
+	if err != nil {
+		return nil, err
+	}
+
+	ix, err := MssqlGetAllIx(db, name)
+	if err != nil {
+		return nil, err
+	}
+
+	var tbl Table
+	tbl.Check = c
+	tbl.Unique = uq
+	tbl.Name = name
+	tbl.Columns = cols
+	tbl.Foreign = fks
+	tbl.Primary = pk
+	tbl.Indexes = ix
+
+	return &tbl, nil
 }
