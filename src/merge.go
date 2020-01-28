@@ -169,7 +169,17 @@ func MergeColumns(dbms Rdbms,
 					MergeAddOperation(drop, dbms.DropColumn(userT.Name, &dc))
 					MergeAddOperation(create, dbms.AddColumn(userT.Name, &uc))
 				} else {
-					MergeAddOperation(create, dbms.AlterColumn(userT.Name, &uc))
+					var lvl ColAltLvl = CL_NONE
+
+					if uc.Is_nullable != dc.Is_nullable {
+						lvl |= CL_NULL
+					}
+
+					if dbms.ColumnType(&dc) != dbms.ColumnType(&uc) {
+						lvl |= CL_TYPE
+					}
+
+					MergeAddOperation(create, dbms.AlterColumn(userT.Name, &uc, lvl))
 				}
 				MergeRecreateColRefs(dbms, newTables, create, drefs)
 			}

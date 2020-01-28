@@ -1,0 +1,24 @@
+{
+    "name": "foo",
+    "columns": [
+        {
+            "name": "id",
+            "type": "int",
+            "is_nullable": false,
+            "is_identity": true
+        },
+        {
+            "name": "val",
+            "type":"char",
+            "max_length": 20
+        }
+    ],
+    "primary": {
+        "name": "foo_pk",
+        "columns": [
+            {
+                "name": "id"
+            }
+        ]
+    }
+}

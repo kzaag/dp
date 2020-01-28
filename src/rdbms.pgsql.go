@@ -3,6 +3,7 @@ package main
 import (
 	"container/list"
 	"database/sql"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -10,7 +11,9 @@ import (
 func PgsqlGetAllTableName(db *sql.DB) ([]string, error) {
 
 	r, err := db.Query(
-		"select table_name from information_schema.tables where table_type = 'BASE TABLE' and table_schema = 'public'")
+		`select table_name 
+		from information_schema.tables 
+		where table_type = 'BASE TABLE' and table_schema = 'public'`)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +31,7 @@ func PgsqlGetAllUnique(db *sql.DB, tableName string) ([]Unique, error) {
 	r, err := db.Query(
 		`select tc.constraint_name
 		 from information_schema.table_constraints tc
-		 where tc.table_name = @tname and tc.constraint_type='UNIQUE' `, sql.Named("tname", tableName))
+		 where tc.table_name = $1 and tc.constraint_type='UNIQUE'`, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -47,8 +50,9 @@ func PgsqlGetAllUnique(db *sql.DB, tableName string) ([]Unique, error) {
 	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
 		c := x.Value.(Unique)
 		r, err := db.Query(
-			`select column_name from information_schema.constraint_column_usage where constraint_name = @cname
-			`, sql.Named("cname", c.Name))
+			`select column_name 
+			from information_schema.constraint_column_usage 
+			where constraint_name = $1`, c.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -67,8 +71,11 @@ func PgsqlGetAllCheck(db *sql.DB, tableName string) ([]Check, error) {
 	r, err := db.Query(
 		`select tc.constraint_name, cc.check_clause
 		from information_schema.table_constraints tc
-		inner join information_schema.check_constraints cc on cc.constraint_name = tc.constraint_name
-		where tc.table_name = @tname and tc.constraint_type='CHECK'`, sql.Named("tname", tableName))
+		inner join information_schema.check_constraints cc 
+			on cc.constraint_name = tc.constraint_name
+		where tc.table_name = $1 and tc.constraint_type='CHECK' and exists (
+			select 1 from information_schema.constraint_column_usage where constraint_name = cc.constraint_name
+		)`, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -86,14 +93,14 @@ func PgsqlGetAllColumn(db *sql.DB, tableName string) ([]Column, error) {
 		`select 
 			column_name, 
 			data_type, 
-			character_maximum_length, 
-			numeric_precision, 
-			numeric_scale, 
-			is_nullable, 
-			is_identity 
+			coalesce(character_maximum_length, -1), 
+			coalesce(numeric_precision, -1), 
+			coalesce(numeric_scale, -1), 
+			coalesce(case when is_nullable = 'YES' then true else false end, false), 
+			coalesce(case when is_identity = 'YES' then true else false end, false) 
 		from information_schema.columns 
-		where table_name = @table_name
-		order by ordinal_position asc;`, sql.Named("table_name", tableName))
+		where table_name = $1
+		order by ordinal_position asc;`, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -106,21 +113,12 @@ func PgsqlGetAllColumn(db *sql.DB, tableName string) ([]Column, error) {
 	return c, nil
 }
 
-// look at tables: information_schema.key_column_usage for fk table columns
-// 			information_schema.constraint_column_usage for table referenced columns ( PK / UQ )
-// 			information_schema.table_constraints for fk definition on table
-// FINISH THIS!!!!
-func MssqlGetAllFK(db *sql.DB, tableName string) ([]ForeignKey, error) {
+func PgsqlGetAllFK(db *sql.DB, tableName string) ([]ForeignKey, error) {
 	r, err := db.Query(
-		`select
-			s.name + '.' + t.name as ref_table,
-			fk.name as name
-		from sys.foreign_keys fk
-			inner join sys.tables t on t.object_id = fk.referenced_object_id
-			inner join sys.schemas s on s.schema_id = t.schema_id
-			inner join sys.tables tt on tt.object_id = fk.parent_object_id
-			inner join sys.schemas ss on ss.schema_id = tt.schema_id
-		where ss.name + '.' + tt.name = @tname`, sql.Named("tname", tableName))
+		`select tc.constraint_name, tf.table_name as ref_table 
+		from information_schema.table_constraints AS tc 
+		join lateral ( select * from information_schema.constraint_column_usage ccu where ccu.constraint_name = tc.constraint_name limit 1) tf on true
+		WHERE constraint_type = 'FOREIGN KEY' AND tc.table_name=$1;`, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -139,12 +137,9 @@ func MssqlGetAllFK(db *sql.DB, tableName string) ([]ForeignKey, error) {
 	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
 		fk := x.Value.(ForeignKey)
 		r, err := db.Query(
-			`select fkcc.name , 0 as d
-			from sys.foreign_keys fk
-			inner join sys.foreign_key_columns fkc on fkc.constraint_object_id = fk.object_id
-			inner join sys.columns fkcc on fkcc.column_id = fkc.parent_column_id and fkcc.object_id = fk.parent_object_id
-			where fk.name = @fkname
-			`, sql.Named("fkname", fk.Name))
+			`select column_name, false as is_descending
+			from information_schema.key_column_usage
+			where constraint_name = $1`, fk.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -153,12 +148,9 @@ func MssqlGetAllFK(db *sql.DB, tableName string) ([]ForeignKey, error) {
 			return nil, err
 		}
 		r, err = db.Query(
-			`select fkcc.name, 0 as d
-			from sys.foreign_keys fk
-			inner join sys.foreign_key_columns fkc on fkc.constraint_object_id = fk.object_id
-			inner join sys.columns fkcc on fkcc.column_id = fkc.referenced_column_id and fkcc.object_id = fk.referenced_object_id
-			where fk.name = @fkname
-			`, sql.Named("fkname", fk.Name))
+			`select column_name, false as is_descending
+			from information_schema.constraint_column_usage
+			where constraint_name = $1`, fk.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -172,14 +164,11 @@ func MssqlGetAllFK(db *sql.DB, tableName string) ([]ForeignKey, error) {
 	return ret, nil
 }
 
-func MssqlGetAllPK(db *sql.DB, tableName string) (*PrimaryKey, error) {
-	r, err := db.Query(`
-	SELECT
-	c.name
-	FROM sys.tables t
-	INNER JOIN sys.schemas s on s.schema_id = t.schema_id
-	INNER JOIN sys.key_constraints c ON t.object_id = c.parent_object_id
-	WHERE s.name + '.' + t.name =@tname and c.type = 'PK'`, sql.Named("tname", tableName))
+func PgsqlGetAllPK(db *sql.DB, tableName string) (*PrimaryKey, error) {
+	r, err := db.Query(
+		`select constraint_name 
+		from information_schema.table_constraints 
+		where constraint_type ='PRIMARY KEY' and table_name = $1`, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -192,12 +181,9 @@ func MssqlGetAllPK(db *sql.DB, tableName string) (*PrimaryKey, error) {
 	r.Scan(&ret.Name)
 
 	r, err = db.Query(
-		`select
-			c.name, ic.is_descending_key
-	from sys.indexes i
-		inner join sys.index_columns ic on ic.index_id = i.index_id and i.object_id = ic.object_id
-		inner join sys.columns c on c.column_id = ic.column_id and ic.object_id = c.object_id
-	where i.is_primary_key = 1 and i.name = @pkname`, sql.Named("pkname", ret.Name))
+		`select column_name, false as is_descending
+		from information_schema.key_column_usage 
+		where constraint_name = $1`, ret.Name)
 
 	cols, err := RdbmsMapCColumns(r)
 	if err != nil {
@@ -209,27 +195,24 @@ func MssqlGetAllPK(db *sql.DB, tableName string) (*PrimaryKey, error) {
 	return &ret, nil
 }
 
-func MssqlGetAllIx(db *sql.DB, tableName string) ([]Index, error) {
-
-	schema, name, err := MssqlSchemaName(tableName)
-	if err != nil {
-		return nil, err
-	}
+func PgsqlGetAllIx(db *sql.DB, tableName string) ([]Index, error) {
 
 	r, err := db.Query(
-		`select 
-		i.name,
-		i.is_unique,
-		i.type_desc
-	 from
-		sys.indexes i
-		inner join sys.tables t on t.object_id = i.object_id
-		inner join sys.schemas s on s.schema_id = t.schema_id
-	where s.name = @s and 
-		  t.name = @n and 
-		  i.type <> 0 and
-		  is_primary_key = 0 and 
-		  is_unique_constraint = 0`, sql.Named("s", schema), sql.Named("n", name))
+		`select
+			i.relname as index_name,
+			ix.indisunique as is_unique,
+			ix.indisclustered as is_clustered,
+			*
+		from
+			pg_class t,
+			pg_class i,
+			pg_index ix
+		where
+			t.oid = ix.indrelid
+			and i.oid = ix.indexrelid
+			and t.relkind = 'r'
+			and t.relname = $1
+			and indisprimary = false`, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -249,13 +232,35 @@ func MssqlGetAllIx(db *sql.DB, tableName string) ([]Index, error) {
 		c := x.Value.(Index)
 		r, err := db.Query(
 			`select
-				c.name, 
-				ic.is_descending_key, 
-				ic.is_included_column
-			from sys.indexes i
-				inner join sys.index_columns ic on ic.index_id = i.index_id and i.object_id = ic.object_id
-				inner join sys.columns c on c.column_id = ic.column_id and ic.object_id = c.object_id
-			where  i.name = @cname`, sql.Named("cname", c.Name))
+				column_name,
+				case when indoption[unn-1] = 3 then true else false end as is_descending,
+				false as is_included_column 
+			from (
+				select
+					t.relname as table_name,
+					i.relname as index_name,
+					a.attname as column_name,
+					unnest(ix.indkey) as unn,
+					ix.indoption,
+					a.attnum
+				from
+					pg_class t,
+					pg_class i,
+					pg_index ix,
+					pg_attribute a
+				where
+					t.oid = ix.indrelid
+					and i.oid = ix.indexrelid
+					and a.attrelid = t.oid
+					and a.attnum = ANY(ix.indkey)
+					and t.relkind = 'r'
+					and i.relname = $1
+				order by
+					t.relname,
+					i.relname,
+					generate_subscripts(ix.indkey,1)
+			) sb
+			where unn = attnum`, c.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -269,94 +274,198 @@ func MssqlGetAllIx(db *sql.DB, tableName string) ([]Index, error) {
 	return ret, nil
 }
 
-func MssqlColumnType(column *Column) string {
+func PgsqlColumnType(column *Column) string {
 	cs := ""
 	switch strings.ToLower(column.Type) {
-	case "nvarchar":
-		if column.Max_length == -1 {
-			cs += strings.ToUpper(column.Type) + "(MAX)"
-		} else {
-			cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(column.Max_length/2) + ")"
-		}
-	case "varbinary":
+	case "bit":
+		fallthrough
+	case "varbit":
+		fallthrough
+	case "bit varying":
+		fallthrough
+	case "char":
+		column.Type = "character"
+		fallthrough
+	case "character":
 		fallthrough
 	case "varchar":
+		if column.Type == "varchar" {
+			column.Type = "character varying"
+		}
+		fallthrough
+	case "character varying":
 		if column.Max_length == -1 {
 			cs += strings.ToUpper(column.Type) + "(MAX)"
 		} else {
 			cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(column.Max_length) + ")"
 		}
-	case "int":
-		fallthrough
-	case "smallint":
-		fallthrough
-	case "tinyint":
+	case "int8":
 		fallthrough
 	case "bigint":
 		fallthrough
-	case "bit":
+	case "serial8":
 		fallthrough
-	case "uniqueidentifier":
+	case "bigserial":
+		fallthrough
+	case "boolean":
+		fallthrough
+	case "bool":
+		fallthrough
+	case "box":
+		fallthrough
+	case "bytea":
+		fallthrough
+	case "cidr":
+		fallthrough
+	case "circle":
+		fallthrough
+	case "date":
+		fallthrough
+	case "double precision":
+		fallthrough
+	case "float8":
+		fallthrough
+	case "inet":
+		fallthrough
+	case "int":
+		if column.Type == "int" {
+			column.Type = "integer"
+		}
+		fallthrough
+	case "integer":
+		fallthrough
+	case "json":
+		fallthrough
+	case "jsonb":
+		fallthrough
+	case "line":
+		fallthrough
+	case "lseg":
+		fallthrough
+	case "macaddr":
+		fallthrough
+	case "money":
+		fallthrough
+	case "path":
+		fallthrough
+	case "pg_lsn":
+		fallthrough
+	case "point":
+		fallthrough
+	case "polygon":
+		fallthrough
+	case "float4":
+		if column.Type == "float4" {
+			column.Type = "real"
+		}
+		fallthrough
+	case "real":
+		fallthrough
+	case "smallint":
+		fallthrough
+	case "int2":
+		fallthrough
+	case "smallserial":
+		fallthrough
+	case "serial 2":
+		fallthrough
+	case "serial":
+		fallthrough
+	case "serial 4":
+		fallthrough
+	case "text":
+		fallthrough
+	case "tsquery":
+		fallthrough
+	case "tsvector":
+		fallthrough
+	case "txid_snapshot":
+		fallthrough
+	case "uuid":
+		fallthrough
+	case "xml":
+		fallthrough
+	case "int4":
 		cs += strings.ToUpper(column.Type)
-	case "binary":
-		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Max_length)) + ")"
-	case "datetime2":
-		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Scale)) + ")"
-	case "decimal":
+	case "numeric":
 		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Precision)) + "," + strconv.Itoa(int(column.Scale)) + ")"
+	case "time":
+		fallthrough
+	case "timetz":
+		fallthrough
+	case "timestamp":
+		fallthrough
+	case "timestamptz":
+		fallthrough
+	case "interval":
+		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Precision)) + ")"
 	default:
-		panic("no mssql mapper for type : " + strings.ToLower(column.Type))
+		panic("no pgsql mapper for type : " + strings.ToLower(column.Type))
 	}
 	return cs
 }
 
-func MssqlColumn(column *Column) string {
+func PgsqlColumn(column *Column) string {
 	var cs string
 
 	cs += column.Name + " "
 
-	cs += MssqlColumnType(column)
+	cs += PgsqlColumnType(column)
 
 	if !column.Is_nullable {
 		cs += " NOT NULL"
+	} else {
+		cs += " NULL"
 	}
 
 	if column.Is_Identity {
-		cs += " IDENTITY"
+		cs += " GENERATED ALWAYS AS IDENTITY"
 	}
 
 	return cs
 }
 
-func MssqlAddColumn(tableName string, c *Column) string {
+func PgsqlAddColumn(tableName string, c *Column) string {
 	s := c.Name + " "
 
-	s += MssqlColumnType(c)
+	s += PgsqlColumnType(c)
 
 	if !c.Is_nullable {
 		s += " NOT NULL"
+	} else {
+		s += " NULL"
 	}
 
 	if c.Is_Identity {
-		s += " IDENTITY"
+		s += " GENERATED ALWAYS AS IDENTITY"
 	}
 
 	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
 }
 
-func MssqlAlterColumn(tableName string, c *Column) string {
-	s := c.Name + " "
+func PgsqlAlterColumn(tableName string, c *Column, l ColAltLvl) string {
 
-	s += MssqlColumnType(c)
+	ret := ""
 
-	if !c.Is_nullable {
-		s += " NOT NULL"
+	if l.IsType() {
+		s := "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name + " SET DATA TYPE " + PgsqlColumnType(c) + ";\n"
+		ret += s
 	}
 
-	return "ALTER TABLE " + tableName + " ALTER COLUMN " + s + ";\n"
+	if l.IsNull() {
+		s := "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name
+		if c.Is_nullable {
+			s += " DROP NOT NULL"
+		} else {
+			s += " SET NOT NULL"
+		}
+		ret += s + ";\n"
+	}
+
+	return ret
 }
 
-func MssqlTableDef(t Table) string {
+func PgsqlTableDef(t Table) string {
 	ret := ""
 
 	ret += "CREATE TABLE " + t.Name + " ( \n"
@@ -364,7 +473,16 @@ func MssqlTableDef(t Table) string {
 	if t.Columns != nil {
 		for i := 0; i < len(t.Columns); i++ {
 			column := t.Columns[i]
-			columnStr := MssqlColumnType(&column)
+			columnStr := column.Name + " "
+			columnStr += PgsqlColumnType(&column)
+			if column.Is_nullable {
+				columnStr += " NULL"
+			} else {
+				columnStr += " NOT NULL"
+			}
+			if column.Is_Identity {
+				columnStr += " GENERATED ALWAYS AS IDENTITY"
+			}
 			ret += "\t" + columnStr + ",\n"
 		}
 	}
@@ -375,38 +493,38 @@ func MssqlTableDef(t Table) string {
 	return ret
 }
 
-func MssqlGetTableDef(db *sql.DB, name string) (*Table, error) {
-	cols, err := MssqlGetAllColumn(db, name)
+func PgsqlGetTableDef(db *sql.DB, name string) (*Table, error) {
+	cols, err := PgsqlGetAllColumn(db, name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("col: %s", err.Error())
 	}
 	if cols == nil || len(cols) == 0 {
 		return nil, nil
 	}
 
-	pk, err := MssqlGetAllPK(db, name)
+	pk, err := PgsqlGetAllPK(db, name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pk: %s", err.Error())
 	}
 
-	fks, err := MssqlGetAllFK(db, name)
+	fks, err := PgsqlGetAllFK(db, name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fk: %s", err.Error())
 	}
 
-	uq, err := MssqlGetAllUnique(db, name)
+	uq, err := PgsqlGetAllUnique(db, name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("uq: %s", err.Error())
 	}
 
-	c, err := MssqlGetAllCheck(db, name)
+	c, err := PgsqlGetAllCheck(db, name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ch: %s", err.Error())
 	}
 
-	ix, err := MssqlGetAllIx(db, name)
+	ix, err := PgsqlGetAllIx(db, name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ix: %s", err.Error())
 	}
 
 	var tbl Table

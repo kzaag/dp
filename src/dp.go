@@ -13,6 +13,7 @@ import (
 	"time"
 
 	_ "github.com/denisenkom/go-mssqldb"
+	_ "github.com/lib/pq"
 )
 
 const (
@@ -165,17 +166,39 @@ func Program() error {
 
 	p := flag.String("p", "merge", "profile. to be executed: merge, import")
 	f := flag.Uint("f", F_SQL, "available import formats: json="+strconv.Itoa(F_JSON)+", sql="+strconv.Itoa(F_SQL))
-	c := flag.String("c", "main.conf", "config path")
+	c := flag.String("c", "", "config path. defaults to first config beginning with main.* ex. main.mssql.conf")
 	e := flag.Bool("e", false, "execute, if not specified then this is dry run")
 	v := flag.Bool("v", false, "verbose - report progress as program runs")
 
 	flag.Parse()
 
-	var dbms Rdbms = RdbmsMssql()
-
 	conf := ConfNew()
 	if err := ConfInit(conf, *c); err != nil {
 		return err
+	}
+
+	driver, err := conf.Get("driver")
+	if err != nil {
+		return err
+	}
+
+	cs := ""
+	var dbms Rdbms
+	switch driver {
+	case "postgres":
+		dbms = RdbmsPgsql()
+		cs, err = conf.PgCs()
+		if err != nil {
+			return err
+		}
+	case "sqlserver":
+		dbms = RdbmsMssql()
+		cs, err = conf.SqlCs()
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("driver is not supported")
 	}
 
 	path, err := conf.Get("tables")
@@ -188,13 +211,8 @@ func Program() error {
 		return err
 	}
 
-	cs, err := conf.Cs()
-	if err != nil {
-		return err
-	}
-
 	db, err := sql.Open(
-		"sqlserver",
+		driver,
 		cs)
 	if err != nil {
 		return err

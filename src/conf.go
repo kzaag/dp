@@ -53,7 +53,7 @@ func (c Config) Get(key string) (string, error) {
 	return ret, nil
 }
 
-func (c Config) Cs() (string, error) {
+func (c Config) SqlCs() (string, error) {
 	server := c.Values["server"]
 	db := c.Values["database"]
 	password := c.Values["password"]
@@ -80,6 +80,34 @@ func (c Config) Cs() (string, error) {
 		";password=" + password +
 		";database=" + db +
 		";", nil
+}
+
+func (c Config) PgCs() (string, error) {
+	server := c.Values["server"]
+	db := c.Values["database"]
+	password := c.Values["password"]
+	user := c.Values["user"]
+
+	if server == "" {
+		return "", fmt.Errorf("field: 'server' was not present in config")
+	}
+
+	if db == "" {
+		return "", fmt.Errorf("field: 'database' was not present in config")
+	}
+
+	if password == "" {
+		return "", fmt.Errorf("field: 'password' was not present in config")
+	}
+
+	if user == "" {
+		return "", fmt.Errorf("field: 'user' was not present in config")
+	}
+
+	return "host=" + server +
+		" user=" + user +
+		" password=" + password +
+		" dbname=" + db, nil
 }
 
 func ConfNew() *Config {
@@ -176,10 +204,32 @@ func ConfGetCustom(keys []string, vals []string) map[string]string {
 
 func ConfInit(c *Config, path string) error {
 	var strc string = ""
-	if bf, err := ioutil.ReadFile(path); err != nil {
-		return err
+	if path == "" {
+		fs, err := ioutil.ReadDir(".")
+		if err != nil {
+			return err
+		}
+		for i := 0; i < len(fs); i++ {
+			n := fs[i].Name()
+			if strings.HasPrefix(n, "main.") && strings.HasSuffix(n, ".conf") {
+				if bf, err := ioutil.ReadFile(n); err != nil {
+					return err
+				} else {
+					strc = string(bf)
+				}
+				break
+			}
+
+			if i == len(fs)-1 {
+				return fmt.Errorf("couldnt find config: main.*.conf")
+			}
+		}
 	} else {
-		strc = string(bf)
+		if bf, err := ioutil.ReadFile(path); err != nil {
+			return err
+		} else {
+			strc = string(bf)
+		}
 	}
 
 	keys, values, err := ConfParseKeyVal(strc)

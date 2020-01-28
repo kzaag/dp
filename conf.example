@@ -3,6 +3,8 @@ database=_____
 password=______
 user=______
 
-tables=./data/tables
+tables=data/mssql/tables/
 
-after=data/views/
+after=data/mssql/views/
+
+driver=sqlserver

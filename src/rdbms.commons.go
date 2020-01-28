@@ -120,5 +120,5 @@ func SqlDropColumn(tableName string, c *Column) string {
 }
 
 func SqlDropIx(tableName string, c *Index) string {
-	return "DROP INDEX " + c.Name + " ON " + tableName + ";\n"
+	return "DROP INDEX " + c.Name + ";\n" //+ " ON " + tableName + ";\n"
 }

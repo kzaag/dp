@@ -366,7 +366,7 @@ func MssqlAddColumn(tableName string, c *Column) string {
 	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
 }
 
-func MssqlAlterColumn(tableName string, c *Column) string {
+func MssqlAlterColumn(tableName string, c *Column, l ColAltLvl) string {
 	s := c.Name + " "
 
 	s += MssqlColumnType(c)
