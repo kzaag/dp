@@ -4,7 +4,10 @@ password=______
 user=______
 
 tables=data/mssql/tables/
+#tables=data/pgsql/tables/
 
 after=data/mssql/views/
+#after=data/pgsql/routines/
 
 driver=sqlserver
+#driver=postgres

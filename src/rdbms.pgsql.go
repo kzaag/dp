@@ -50,7 +50,7 @@ func PgsqlGetAllUnique(db *sql.DB, tableName string) ([]Unique, error) {
 	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
 		c := x.Value.(Unique)
 		r, err := db.Query(
-			`select column_name 
+			`select column_name, false as Is_descending
 			from information_schema.constraint_column_usage 
 			where constraint_name = $1`, c.Name)
 		if err != nil {
@@ -212,7 +212,8 @@ func PgsqlGetAllIx(db *sql.DB, tableName string) ([]Index, error) {
 			and i.oid = ix.indexrelid
 			and t.relkind = 'r'
 			and t.relname = $1
-			and indisprimary = false`, tableName)
+			and indisprimary = false
+			and indisunique = false`, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -324,6 +325,9 @@ func PgsqlColumnType(column *Column) string {
 	case "double precision":
 		fallthrough
 	case "float8":
+		if column.Type == "float8" {
+			column.Type = "double precision"
+		}
 		fallthrough
 	case "inet":
 		fallthrough
