@@ -4,12 +4,11 @@
         {
             "name": "id",
             "type": "int",
-            "is_nullable": false,
-            "is_identity": true
+            "is_nullable": false
         },
         {
             "name": "val",
-            "type":"char",
+            "type":"varchar",
             "max_length": 20
         }
     ],

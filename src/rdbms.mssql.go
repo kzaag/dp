@@ -442,3 +442,7 @@ func MssqlGetTableDef(db *sql.DB, name string) (*Table, error) {
 
 	return &tbl, nil
 }
+
+func MssqlDropIx(tableName string, c *Index) string {
+	return "DROP INDEX " + c.Name + " ON " + tableName + ";\n"
+}

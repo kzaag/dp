@@ -11,6 +11,10 @@
 			"name": "x",
 			"type": "varchar",
 			"max_length": 50
+		},
+		{
+			"name": "y",
+			"type": "int"
 		}
 	],
 	"primary": {
@@ -20,5 +24,15 @@
 				"name": "id"
 			}
 		]
-	}
+	},
+	"indexes": [
+		{
+			"name": "test_ix_y",
+			"columns": [
+				{
+					"name": "y"
+				}
+			]
+		}
+	]
 }

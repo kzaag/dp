@@ -57,7 +57,7 @@ func RdbmsMssql() Rdbms {
 	res.AddFk = SqlAddFk
 	res.AddCheck = SqlAddCheck
 	res.DropConstraint = SqlDropConstraint
-	res.DropIx = SqlDropIx
+	res.DropIx = MssqlDropIx
 	res.AddColumn = MssqlAddColumn
 	res.AlterColumn = MssqlAlterColumn
 	res.DropColumn = SqlDropColumn
