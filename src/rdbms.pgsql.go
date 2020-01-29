@@ -94,7 +94,7 @@ func PgsqlGetAllColumn(db *sql.DB, tableName string) ([]Column, error) {
 			column_name, 
 			data_type, 
 			coalesce(character_maximum_length, -1), 
-			coalesce(numeric_precision, -1), 
+			coalesce(numeric_precision, datetime_precision,  -1), 
 			coalesce(numeric_scale, -1), 
 			coalesce(case when is_nullable = 'YES' then true else false end, false), 
 			coalesce(case when is_identity = 'YES' then true else false end, false) 
@@ -126,7 +126,7 @@ func PgsqlGetAllFK(db *sql.DB, tableName string) ([]ForeignKey, error) {
 
 	for r.Next() {
 		var k ForeignKey
-		err := r.Scan(&k.Ref_table, &k.Name)
+		err := r.Scan(&k.Name, &k.Ref_table)
 		if err != nil {
 			return nil, err
 		}
@@ -285,7 +285,9 @@ func PgsqlColumnType(column *Column) string {
 	case "bit varying":
 		fallthrough
 	case "char":
-		column.Type = "character"
+		if column.Type == "char" {
+			column.Type = "character"
+		}
 		fallthrough
 	case "character":
 		fallthrough
@@ -308,9 +310,12 @@ func PgsqlColumnType(column *Column) string {
 		fallthrough
 	case "bigserial":
 		fallthrough
-	case "boolean":
-		fallthrough
 	case "bool":
+		if column.Type == "bool" {
+			column.Type = "boolean"
+		}
+		fallthrough
+	case "boolean":
 		fallthrough
 	case "box":
 		fallthrough
@@ -368,6 +373,9 @@ func PgsqlColumnType(column *Column) string {
 	case "smallint":
 		fallthrough
 	case "int2":
+		if column.Type == "int2" {
+			column.Type = "smallint"
+		}
 		fallthrough
 	case "smallserial":
 		fallthrough
@@ -397,12 +405,22 @@ func PgsqlColumnType(column *Column) string {
 		fallthrough
 	case "timetz":
 		fallthrough
-	case "timestamp":
-		fallthrough
-	case "timestamptz":
-		fallthrough
 	case "interval":
 		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Precision)) + ")"
+	case "timestamp":
+		if column.Type == "timestamp" {
+			column.Type = "timestamp without time zone"
+		}
+		fallthrough
+	case "timestamp without time zone":
+		cs += "TIMESTAMP(" + strconv.Itoa(int(column.Precision)) + ") WITHOUT TIME ZONE"
+	case "timestamptz":
+		if column.Type == "timestamptz" {
+			column.Type = "timestamp with time zone"
+		}
+		fallthrough
+	case "timestamp with time zone":
+		cs += "TIMESTAMP(" + strconv.Itoa(int(column.Precision)) + ") WITH TIME ZONE"
 	default:
 		panic("no pgsql mapper for type : " + strings.ToLower(column.Type))
 	}

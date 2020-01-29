@@ -84,23 +84,25 @@ func DpStdoutWriteTables(dbms Rdbms, tables []Table, dir string, format uint) er
 	return nil
 }
 
-func DpExecuteCmdsVerbose(db *sql.DB, cmds string) error {
+func DpExecuteCmdsVerbose(db *sql.DB, cmds string) (int, int, error) {
 	cc := strings.Split(cmds, ";\n")
+	all := 0
 	for i := 0; i < len(cc); i++ {
 		if cc[i] == "" {
 			continue
 		}
+		all++
 		fmt.Println(cc[i])
 		start := time.Now()
 		_, err := db.Exec(cc[i])
 		if err != nil {
 			fmt.Println("\033[4;31mError " + err.Error() + "\033[0m")
-			return fmt.Errorf("")
+			return i, len(cc), fmt.Errorf("")
 		}
 		elapsed := time.Since(start)
 		fmt.Println("\033[4;32mQuery completed in " + elapsed.String() + "\033[0m")
 	}
-	return nil
+	return all, all, nil
 }
 
 func DpExecuteCmds(db *sql.DB, cmds string) error {
@@ -206,9 +208,20 @@ func Program() error {
 		return err
 	}
 
-	t, err := ReadTables(path)
-	if err != nil {
-		return err
+	var t []Table
+	if *v {
+		start := time.Now()
+		t, err = ReadTables(path)
+		if err != nil {
+			return err
+		}
+		elapsed := time.Since(start)
+		fmt.Printf("Parsed local schema in %s. \n", elapsed.String())
+	} else {
+		t, err = ReadTables(path)
+		if err != nil {
+			return err
+		}
 	}
 
 	db, err := sql.Open(
@@ -234,15 +247,27 @@ func Program() error {
 
 	switch *p {
 	case "merge":
-		s, err := MergeRdbmsTables(dbms, db, t)
-		if err != nil {
-			return err
+		s := ""
+		if *v {
+			start := time.Now()
+			s, err = MergeRdbmsTables(dbms, db, t)
+			if err != nil {
+				return err
+			}
+			elapsed := time.Since(start)
+			fmt.Printf("Downloaded remote schema and generated script in %s. \n", elapsed.String())
+		} else {
+			s, err = MergeRdbmsTables(dbms, db, t)
+			if err != nil {
+				return err
+			}
 		}
 
 		if *e {
 			if *v {
 				start := time.Now()
-				if err = DpExecuteCmdsVerbose(db, s); err != nil {
+				c, a, err := DpExecuteCmdsVerbose(db, s)
+				if err != nil {
 					fmt.Println("\033[0;31mcouldnt complete deploy. statements remaining:\033[0m")
 					s, err := MergeRdbmsTables(dbms, db, t)
 					if err != nil {
@@ -252,7 +277,7 @@ func Program() error {
 					return err
 				}
 				elapsed := time.Since(start)
-				fmt.Printf("Completed in %s. Database is up to date\n", elapsed.String())
+				fmt.Printf("Merge completed in %s. Executed %d / %d operations.\n", elapsed.String(), c, a)
 			} else {
 				if err = DpExecuteCmds(db, s); err != nil {
 					return err
