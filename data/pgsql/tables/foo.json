@@ -15,6 +15,10 @@
         {
             "name": "x",
             "type": "float8"
+        },
+        {
+            "name": "y",
+            "type": "int2"
         }
     ],
     "primary": {

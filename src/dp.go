@@ -266,7 +266,7 @@ func Program() error {
 		if *e {
 			if *v {
 				start := time.Now()
-				c, a, err := DpExecuteCmdsVerbose(db, s)
+				c, _, err := DpExecuteCmdsVerbose(db, s)
 				if err != nil {
 					fmt.Println("\033[0;31mcouldnt complete deploy. statements remaining:\033[0m")
 					s, err := MergeRdbmsTables(dbms, db, t)
@@ -277,7 +277,7 @@ func Program() error {
 					return err
 				}
 				elapsed := time.Since(start)
-				fmt.Printf("Merge completed in %s. Executed %d / %d operations.\n", elapsed.String(), c, a)
+				fmt.Printf("Merge completed in %s. Executed %d operations.\n", elapsed.String(), c)
 			} else {
 				if err = DpExecuteCmds(db, s); err != nil {
 					return err

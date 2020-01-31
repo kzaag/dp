@@ -465,16 +465,16 @@ func PgsqlAddColumn(tableName string, c *Column) string {
 	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
 }
 
-func PgsqlAlterColumn(tableName string, c *Column, l ColAltLvl) string {
+func (dbms Rdbms) PgsqlAlterColumn(tableName string, sc *Column, c *Column) string {
 
 	ret := ""
 
-	if l.IsType() {
+	if dbms.ColumnType(sc) != dbms.ColumnType(c) {
 		s := "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name + " SET DATA TYPE " + PgsqlColumnType(c) + ";\n"
 		ret += s
 	}
 
-	if l.IsNull() {
+	if sc.Is_nullable != c.Is_nullable {
 		s := "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name
 		if c.Is_nullable {
 			s += " DROP NOT NULL"

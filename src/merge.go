@@ -154,7 +154,9 @@ func MergeColumns(dbms Rdbms,
 			}
 
 			if index < 0 {
+
 				MergeAddOperation(create, dbms.AddColumn(userT.Name, &uc))
+
 			} else {
 				dc := dbT.Columns[index]
 				matchedIxs.PushBack(index)
@@ -166,21 +168,16 @@ func MergeColumns(dbms Rdbms,
 				drefs := MergeDropColRefs(dbms, dc, *dbT, oldTables, drop)
 
 				if dc.Is_Identity != uc.Is_Identity {
+
 					MergeAddOperation(drop, dbms.DropColumn(userT.Name, &dc))
 					MergeAddOperation(create, dbms.AddColumn(userT.Name, &uc))
+
 				} else {
-					var lvl ColAltLvl = CL_NONE
 
-					if uc.Is_nullable != dc.Is_nullable {
-						lvl |= CL_NULL
-					}
+					MergeAddOperation(create, dbms.AlterColumn(userT.Name, &dc, &uc))
 
-					if dbms.ColumnType(&dc) != dbms.ColumnType(&uc) {
-						lvl |= CL_TYPE
-					}
-
-					MergeAddOperation(create, dbms.AlterColumn(userT.Name, &uc, lvl))
 				}
+
 				MergeRecreateColRefs(dbms, newTables, create, drefs)
 			}
 		}
