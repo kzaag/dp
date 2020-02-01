@@ -18,7 +18,8 @@
         },
         {
             "name": "y",
-            "type": "int2"
+            "type": "varchar",
+            "max_length": 20
         }
     ],
     "primary": {

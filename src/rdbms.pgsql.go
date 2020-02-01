@@ -162,7 +162,14 @@ func PgsqlAlterColumn(r *Remote, tableName string, sc *Column, c *Column) string
 	ret := ""
 
 	if RemoteColumnType(r, sc) != RemoteColumnType(r, c) {
-		s := "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name + " SET DATA TYPE " + RemoteColumnType(r, c) + ";\n"
+
+		s := "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name + " SET DATA TYPE " + RemoteColumnType(r, c)
+
+		// here theoretically could be introduced USING ( ... ) to the alter
+		// but it seems too complex to properly introduce trimming for any pg type.
+		// thus leaving it empty - user must handle this alone
+
+		s += ";\n"
 		ret += s
 	}
 
