@@ -2,12 +2,11 @@ package main
 
 import (
 	"container/list"
-	"database/sql"
 	"strings"
 )
 
 /*
-generating differential script based on local vs dbms schema
+generating differential script based on local vs remote schema
 */
 
 const (
@@ -122,16 +121,16 @@ func MergeCompareCColumn(c1 []ConstraintColumn, c2 []ConstraintColumn) bool {
 	return true
 }
 
-func MergeCompareColumn(dbms Rdbms, c1 Column, c2 Column) bool {
-	dcStr := dbms.AddColumn("", &c1)
-	userColStr := dbms.AddColumn("", &c2)
+func MergeCompareColumn(remote *Remote, c1 *Column, c2 *Column) bool {
+	dcStr := RemoteAddColumn(remote, "", c1)
+	userColStr := RemoteAddColumn(remote, "", c2)
 	if dcStr == userColStr {
 		return true
 	}
 	return false
 }
 
-func MergeColumns(dbms Rdbms,
+func MergeColumns(remote *Remote,
 	userT *Table, dbT *Table,
 	oldTables []Table, newTables []Table,
 	create *string, drop *string) {
@@ -143,7 +142,7 @@ func MergeColumns(dbms Rdbms,
 	matchedIxs := list.New()
 	if userT.Columns != nil {
 		for i := 0; i < len(userT.Columns); i++ {
-			uc := userT.Columns[i]
+			uc := &userT.Columns[i]
 			var index int = -1
 			if dbT.Columns != nil {
 				for j := 0; j < len(dbT.Columns); j++ {
@@ -155,30 +154,30 @@ func MergeColumns(dbms Rdbms,
 
 			if index < 0 {
 
-				MergeAddOperation(create, dbms.AddColumn(userT.Name, &uc))
+				MergeAddOperation(create, RemoteAddColumn(remote, userT.Name, uc))
 
 			} else {
-				dc := dbT.Columns[index]
+				dc := &dbT.Columns[index]
 				matchedIxs.PushBack(index)
 
-				if MergeCompareColumn(dbms, uc, dc) {
+				if MergeCompareColumn(remote, uc, dc) {
 					continue
 				}
 
-				drefs := MergeDropColRefs(dbms, dc, *dbT, oldTables, drop)
+				drefs := MergeDropColRefs(remote, dc, dbT, oldTables, drop)
 
 				if dc.Is_Identity != uc.Is_Identity {
 
-					MergeAddOperation(drop, dbms.DropColumn(userT.Name, &dc))
-					MergeAddOperation(create, dbms.AddColumn(userT.Name, &uc))
+					MergeAddOperation(drop, RemoteDropColumn(remote, userT.Name, dc))
+					MergeAddOperation(create, RemoteAddColumn(remote, userT.Name, uc))
 
 				} else {
 
-					MergeAddOperation(create, dbms.AlterColumn(userT.Name, &dc, &uc))
+					MergeAddOperation(create, RemoteAlterColumn(remote, userT.Name, dc, uc))
 
 				}
 
-				MergeRecreateColRefs(dbms, newTables, create, drefs)
+				MergeRecreateColRefs(remote, newTables, create, drefs)
 			}
 		}
 	}
@@ -195,19 +194,21 @@ func MergeColumns(dbms Rdbms,
 			continue
 		}
 
-		drefs := MergeDropColRefs(dbms, dbT.Columns[i], *dbT, oldTables, drop)
+		dc := &dbT.Columns[i]
 
-		MergeAddOperation(drop, dbms.DropColumn(userT.Name, &dbT.Columns[i]))
+		drefs := MergeDropColRefs(remote, dc, dbT, oldTables, drop)
 
-		MergeRecreateColRefs(dbms, newTables, create, drefs)
+		MergeAddOperation(drop, RemoteDropColumn(remote, userT.Name, dc))
+
+		MergeRecreateColRefs(remote, newTables, create, drefs)
 	}
 }
 
-func MergeIx(dbms Rdbms, userT *Table, dbT *Table, create *string, drop *string) {
+func MergeIx(remote *Remote, userT *Table, dbT *Table, create *string, drop *string) {
 	matchedIxs := list.New()
 	if userT.Indexes != nil && len(userT.Indexes) > 0 {
 		for i := 0; i < len(userT.Indexes); i++ {
-			userUq := userT.Indexes[i]
+			userUq := &userT.Indexes[i]
 			var index int = -1
 			if dbT != nil && dbT.Indexes != nil {
 				for j := 0; j < len(dbT.Indexes); j++ {
@@ -218,13 +219,17 @@ func MergeIx(dbms Rdbms, userT *Table, dbT *Table, create *string, drop *string)
 			}
 
 			if index < 0 {
-				MergeAddOperation(create, dbms.AddIx(userT.Name, &userUq))
+
+				MergeAddOperation(create, RemoteAddIx(remote, userT.Name, userUq))
+
 			} else {
 				matchedIxs.PushBack(index)
 
 				if !MergeCompareIColumn(userUq.Columns, dbT.Indexes[index].Columns) {
-					MergeAddOperation(drop, dbms.DropIx(userT.Name, &dbT.Indexes[index]))
-					MergeAddOperation(create, dbms.AddIx(userT.Name, &userUq))
+
+					MergeAddOperation(drop, RemoteDropIx(remote, userT.Name, &dbT.Indexes[index]))
+					MergeAddOperation(create, RemoteAddIx(remote, userT.Name, userUq))
+
 				}
 			}
 		}
@@ -245,15 +250,15 @@ func MergeIx(dbms Rdbms, userT *Table, dbT *Table, create *string, drop *string)
 		if exists {
 			continue
 		}
-		MergeAddOperation(drop, dbms.DropIx(userT.Name, &dbT.Indexes[i]))
+		MergeAddOperation(drop, RemoteDropIx(remote, userT.Name, &dbT.Indexes[i]))
 	}
 }
 
-func MergeUnique(dbms Rdbms, userT *Table, dbT *Table, create *string, drop *string) {
+func MergeUnique(remote *Remote, userT *Table, dbT *Table, create *string, drop *string) {
 	matchedIxs := list.New()
 	if userT.Unique != nil && len(userT.Unique) > 0 {
 		for i := 0; i < len(userT.Unique); i++ {
-			userUq := userT.Unique[i]
+			userUq := &userT.Unique[i]
 			var index int = -1
 			if dbT != nil && dbT.Unique != nil {
 				for j := 0; j < len(dbT.Unique); j++ {
@@ -264,13 +269,16 @@ func MergeUnique(dbms Rdbms, userT *Table, dbT *Table, create *string, drop *str
 			}
 
 			if index < 0 {
-				MergeAddOperation(create, dbms.AddUnique(userT.Name, &userUq))
+
+				MergeAddOperation(create, RemoteAddUnique(remote, userT.Name, userUq))
+
 			} else {
 				matchedIxs.PushBack(index)
 
 				if !MergeCompareCColumn(userUq.Columns, dbT.Unique[index].Columns) {
-					MergeAddOperation(drop, dbms.DropConstraint(userT.Name, &dbT.Unique[index].Constraint))
-					MergeAddOperation(create, dbms.AddUnique(userT.Name, &userUq))
+
+					MergeAddOperation(drop, RemoteDropConstraint(remote, userT.Name, &dbT.Unique[index].Constraint))
+					MergeAddOperation(create, RemoteAddUnique(remote, userT.Name, userUq))
 				}
 			}
 		}
@@ -291,15 +299,16 @@ func MergeUnique(dbms Rdbms, userT *Table, dbT *Table, create *string, drop *str
 		if exists {
 			continue
 		}
-		MergeAddOperation(drop, dbms.DropConstraint(userT.Name, &dbT.Unique[i].Constraint))
+
+		MergeAddOperation(drop, RemoteDropConstraint(remote, userT.Name, &dbT.Unique[i].Constraint))
 	}
 }
 
-func MergeCheck(dbms Rdbms, userT *Table, dbT *Table, create *string, drop *string) {
+func MergeCheck(remote *Remote, userT *Table, dbT *Table, create *string, drop *string) {
 	matchedIxs := list.New()
 	if userT.Check != nil && len(userT.Check) > 0 {
 		for i := 0; i < len(userT.Check); i++ {
-			userC := userT.Check[i]
+			userC := &userT.Check[i]
 			var index int = -1
 			if dbT != nil && dbT.Check != nil {
 				for j := 0; j < len(dbT.Check); j++ {
@@ -310,12 +319,15 @@ func MergeCheck(dbms Rdbms, userT *Table, dbT *Table, create *string, drop *stri
 			}
 
 			if index < 0 {
-				MergeAddOperation(create, dbms.AddCheck(userT.Name, &userC))
+
+				MergeAddOperation(create, RemoteAddCheck(remote, userT.Name, userC))
+
 			} else {
 				matchedIxs.PushBack(index)
 				if userC.Def != dbT.Check[i].Def {
-					MergeAddOperation(drop, dbms.DropConstraint(userT.Name, &Constraint{dbT.Check[index].Name, nil}))
-					MergeAddOperation(create, dbms.AddCheck(userT.Name, &userC))
+
+					MergeAddOperation(drop, RemoteDropConstraint(remote, userT.Name, &Constraint{dbT.Check[index].Name, nil}))
+					MergeAddOperation(create, RemoteAddCheck(remote, userT.Name, userC))
 				}
 			}
 		}
@@ -336,11 +348,12 @@ func MergeCheck(dbms Rdbms, userT *Table, dbT *Table, create *string, drop *stri
 		if exists {
 			continue
 		}
-		MergeAddOperation(drop, dbms.DropConstraint(userT.Name, &Constraint{dbT.Check[i].Name, nil}))
+		c := &Constraint{dbT.Check[i].Name, nil}
+		MergeAddOperation(drop, RemoteDropConstraint(remote, userT.Name, c))
 	}
 }
 
-func MergeFK(dbms Rdbms,
+func MergeFK(remote *Remote,
 	userT *Table, dbT *Table,
 	oldTables []Table, newTables []Table,
 	create *string, drop *string) {
@@ -350,7 +363,7 @@ func MergeFK(dbms Rdbms,
 
 	if userFKs != nil && len(userFKs) > 0 {
 		for i := 0; i < len(userFKs); i++ {
-			userFK := userFKs[i]
+			userFK := &userFKs[i]
 			var index int = -1
 			if dbT != nil && dbT.Foreign != nil {
 				for j := 0; j < len(dbT.Foreign); j++ {
@@ -361,15 +374,18 @@ func MergeFK(dbms Rdbms,
 			}
 
 			if index < 0 {
-				MergeAddOperation(create, dbms.AddFk(userT.Name, &userFK))
+
+				MergeAddOperation(create, RemoteAddFk(remote, userT.Name, userFK))
+
 			} else {
 				matchedIxs.PushBack(index)
 
 				ceq := MergeCompareCColumn(userFK.Columns, dbT.Foreign[index].Columns)
 				rceq := MergeCompareCColumn(userFK.Ref_columns, dbT.Foreign[index].Ref_columns)
+
 				if !ceq || !rceq {
-					MergeAddOperation(drop, dbms.DropConstraint(userT.Name, &dbT.Foreign[index].Constraint))
-					MergeAddOperation(create, dbms.AddFk(userT.Name, &userFK))
+					MergeAddOperation(drop, RemoteDropConstraint(remote, userT.Name, &dbT.Foreign[index].Constraint))
+					MergeAddOperation(create, RemoteAddFk(remote, userT.Name, userFK))
 				}
 			}
 		}
@@ -387,24 +403,26 @@ func MergeFK(dbms Rdbms,
 				break
 			}
 		}
+
 		if exists {
 			continue
 		}
-		MergeAddOperation(drop, dbms.DropConstraint(userT.Name, &dbT.Foreign[i].Constraint))
+
+		MergeAddOperation(drop, RemoteDropConstraint(remote, userT.Name, &dbT.Foreign[i].Constraint))
 	}
 }
 
-func MergeDropColRefs(dbms Rdbms, col Column, table Table, tables []Table, drop *string) []MergeDropBuff {
+func MergeDropColRefs(remote *Remote, col *Column, table *Table, tables []Table, drop *string) []MergeDropBuff {
 	list := list.New()
 	if table.Primary != nil && table.Primary.Columns != nil {
 		for i := 0; i < len(table.Primary.Columns); i++ {
 			c := table.Primary.Columns[i]
 			if c.Name == col.Name {
-				bf := MergeDropPkRefs(dbms, table.Name, tables, drop)
+				bf := MergeDropPkRefs(remote, table.Name, tables, drop)
 				for i := 0; i < len(bf); i++ {
 					list.PushBack(bf[i])
 				}
-				MergeAddOperation(drop, dbms.DropConstraint(table.Name, &table.Primary.Constraint))
+				MergeAddOperation(drop, RemoteDropConstraint(remote, table.Name, &table.Primary.Constraint))
 				list.PushBack(MergeNewDropPk(table.Name, table.Primary))
 			}
 		}
@@ -419,7 +437,7 @@ func MergeDropColRefs(dbms Rdbms, col Column, table Table, tables []Table, drop 
 			for j := 0; j < len(c.Columns); j++ {
 				cc := c.Columns[j]
 				if cc.Name == col.Name {
-					MergeAddOperation(drop, dbms.DropConstraint(table.Name, &c.Constraint))
+					MergeAddOperation(drop, RemoteDropConstraint(remote, table.Name, &c.Constraint))
 					list.PushBack(MergeNewDropUq(table.Name, &c))
 				}
 			}
@@ -434,7 +452,7 @@ func MergeDropColRefs(dbms Rdbms, col Column, table Table, tables []Table, drop 
 	return ret
 }
 
-func MergeRecreateColRefs(dbms Rdbms, tables []Table, create *string, dc []MergeDropBuff) {
+func MergeRecreateColRefs(remote *Remote, tables []Table, create *string, dc []MergeDropBuff) {
 	if dc == nil {
 		return
 	}
@@ -451,7 +469,7 @@ func MergeRecreateColRefs(dbms Rdbms, tables []Table, create *string, dc []Merge
 					for z := 0; z < len(table.Foreign); z++ {
 						fk := table.Foreign[z]
 						if fk.Name == dropBuff.Foreign.Name {
-							MergeAddOperation(create, dbms.AddFk(table.Name, &fk))
+							MergeAddOperation(create, RemoteAddFk(remote, table.Name, &fk))
 						}
 					}
 				}
@@ -462,7 +480,7 @@ func MergeRecreateColRefs(dbms Rdbms, tables []Table, create *string, dc []Merge
 				if table.Primary != nil {
 					pk := table.Primary
 					if pk.Name == dropBuff.Primary.Name {
-						MergeAddOperation(create, dbms.AddPk(table.Name, pk))
+						MergeAddOperation(create, RemoteAddPk(remote, table.Name, pk))
 					}
 				}
 				continue
@@ -474,7 +492,7 @@ func MergeRecreateColRefs(dbms Rdbms, tables []Table, create *string, dc []Merge
 					for z := 0; z < len(u); z++ {
 						uu := u[z]
 						if uu.Name == dropBuff.Unique.Name {
-							MergeAddOperation(create, dbms.AddUnique(table.Name, &uu))
+							MergeAddOperation(create, RemoteAddUnique(remote, table.Name, &uu))
 						}
 					}
 				}
@@ -483,7 +501,7 @@ func MergeRecreateColRefs(dbms Rdbms, tables []Table, create *string, dc []Merge
 	}
 }
 
-func MergeDropPkRefs(dbms Rdbms, tableName string, tables []Table, drop *string) []MergeDropBuff {
+func MergeDropPkRefs(remote *Remote, tableName string, tables []Table, drop *string) []MergeDropBuff {
 
 	var c int = 0
 	for i := 0; i < len(tables); i++ {
@@ -501,7 +519,7 @@ func MergeDropPkRefs(dbms Rdbms, tableName string, tables []Table, drop *string)
 		fks := tables[i].Foreign
 		for j := 0; j < len(fks); j++ {
 			if fks[j].Ref_table == tableName {
-				MergeAddOperation(drop, dbms.DropConstraint(tables[i].Name, &fks[j].Constraint))
+				MergeAddOperation(drop, RemoteDropConstraint(remote, tables[i].Name, &fks[j].Constraint))
 				ret[lastix] = MergeNewDropFk(tables[i].Name, &fks[j])
 				lastix++
 			}
@@ -511,7 +529,7 @@ func MergeDropPkRefs(dbms Rdbms, tableName string, tables []Table, drop *string)
 	return ret
 }
 
-func MergeRecreatePkRefs(dbms Rdbms, tables []Table, create *string, dc []MergeDropBuff) {
+func MergeRecreatePkRefs(remote *Remote, tables []Table, create *string, dc []MergeDropBuff) {
 	if dc == nil {
 		return
 	}
@@ -523,7 +541,7 @@ func MergeRecreatePkRefs(dbms Rdbms, tables []Table, create *string, dc []MergeD
 				for z := 0; z < len(tables[j].Foreign); z++ {
 					fk := tables[j].Foreign[z]
 					if fk.Name == droppedC.Foreign.Name {
-						MergeAddOperation(create, dbms.AddFk(tables[j].Name, &fk))
+						MergeAddOperation(create, RemoteAddFk(remote, tables[j].Name, &fk))
 					}
 				}
 			}
@@ -532,7 +550,7 @@ func MergeRecreatePkRefs(dbms Rdbms, tables []Table, create *string, dc []MergeD
 }
 
 func MergePrimary(
-	dbms Rdbms,
+	remote *Remote,
 	userT *Table, dbT *Table,
 	oldTables []Table, newTables []Table,
 	create *string, drop *string) {
@@ -546,18 +564,18 @@ func MergePrimary(
 	tname := userT.Name
 
 	if userPK != nil && (dbT == nil || dbT.Primary == nil) {
-		MergeAddOperation(create, dbms.AddPk(tname, userPK))
+		MergeAddOperation(create, RemoteAddPk(remote, tname, userPK))
 		return
 	}
 
 	var droppedCs []MergeDropBuff = nil
 
 	if userPK == nil && (dbT != nil && dbT.Primary != nil) {
-		droppedCs = MergeDropPkRefs(dbms, tname, oldTables, drop)
+		droppedCs = MergeDropPkRefs(remote, tname, oldTables, drop)
 
-		MergeAddOperation(drop, dbms.DropConstraint(tname, &dbT.Primary.Constraint))
+		MergeAddOperation(drop, RemoteDropConstraint(remote, tname, &dbT.Primary.Constraint))
 
-		MergeRecreatePkRefs(dbms, newTables, create, droppedCs)
+		MergeRecreatePkRefs(remote, newTables, create, droppedCs)
 
 		return
 	}
@@ -565,12 +583,12 @@ func MergePrimary(
 	eq := MergeCompareCColumn(userPK.Columns, dbT.Primary.Columns)
 
 	if userPK.Name != dbT.Primary.Name || !eq {
-		droppedCs = MergeDropPkRefs(dbms, tname, oldTables, drop)
+		droppedCs = MergeDropPkRefs(remote, tname, oldTables, drop)
 
-		MergeAddOperation(drop, dbms.DropConstraint(tname, &dbT.Primary.Constraint))
-		MergeAddOperation(create, dbms.AddPk(tname, userPK))
+		MergeAddOperation(drop, RemoteDropConstraint(remote, tname, &dbT.Primary.Constraint))
+		MergeAddOperation(create, RemoteAddPk(remote, tname, userPK))
 
-		MergeRecreatePkRefs(dbms, newTables, create, droppedCs)
+		MergeRecreatePkRefs(remote, newTables, create, droppedCs)
 	}
 }
 
@@ -588,9 +606,9 @@ func MergeFindTable(name string, tables []Table) *Table {
 	return t
 }
 
-func MergeRdbmsTables(dbms Rdbms, db *sql.DB, tables []Table) (string, error) {
+func MergeRemoteTables(remote *Remote, tables []Table) (string, error) {
 
-	remTables, err := RdbmsGetMatchTables(dbms, db, tables)
+	remTables, err := RemoteGetMatchTables(remote, tables)
 
 	if err != nil {
 		return "", err
@@ -601,37 +619,37 @@ func MergeRdbmsTables(dbms Rdbms, db *sql.DB, tables []Table) (string, error) {
 	var devnull string
 	for i := 0; i < len(tables); i++ {
 		if MergeFindTable(tables[i].Name, remTables) == nil {
-			create += dbms.TableDef(tables[i])
+			create += RemoteTableDef(remote, &tables[i])
 		}
 	}
 
 	for i := 0; i < len(tables); i++ {
 		t := MergeFindTable(tables[i].Name, remTables)
-		MergeColumns(dbms, &tables[i], t, remTables, tables, &create, &devnull)
+		MergeColumns(remote, &tables[i], t, remTables, tables, &create, &devnull)
 	}
 
 	for i := 0; i < len(tables); i++ {
 		t := MergeFindTable(tables[i].Name, remTables)
-		MergePrimary(dbms, &tables[i], t, remTables, tables, &create, &drop)
+		MergePrimary(remote, &tables[i], t, remTables, tables, &create, &drop)
 	}
 	for i := 0; i < len(tables); i++ {
 		t := MergeFindTable(tables[i].Name, remTables)
-		MergeUnique(dbms, &tables[i], t, &create, &drop)
-	}
-
-	for i := 0; i < len(tables); i++ {
-		t := MergeFindTable(tables[i].Name, remTables)
-
-		MergeFK(dbms, &tables[i], t, remTables, tables, &create, &drop)
-
-		MergeCheck(dbms, &tables[i], t, &create, &drop)
-
-		MergeIx(dbms, &tables[i], t, &create, &drop)
+		MergeUnique(remote, &tables[i], t, &create, &drop)
 	}
 
 	for i := 0; i < len(tables); i++ {
 		t := MergeFindTable(tables[i].Name, remTables)
-		MergeColumns(dbms, &tables[i], t, remTables, tables, &devnull, &drop)
+
+		MergeFK(remote, &tables[i], t, remTables, tables, &create, &drop)
+
+		MergeCheck(remote, &tables[i], t, &create, &drop)
+
+		MergeIx(remote, &tables[i], t, &create, &drop)
+	}
+
+	for i := 0; i < len(tables); i++ {
+		t := MergeFindTable(tables[i].Name, remTables)
+		MergeColumns(remote, &tables[i], t, remTables, tables, &devnull, &drop)
 	}
 
 	cmd := ""

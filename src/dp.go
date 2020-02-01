@@ -32,19 +32,19 @@ func DpExt(f uint) string {
 	}
 }
 
-func DpTableString(dbms Rdbms, t Table, f uint) ([]byte, error) {
+func DpTableString(remote *Remote, t *Table, f uint) ([]byte, error) {
 	switch f {
 	case F_JSON:
 		fallthrough
 	default:
 		return json.MarshalIndent(t, "", "\t")
 	case F_SQL:
-		b := dbms.TableDef(t)
+		b := RemoteTableDef(remote, t)
 		return []byte(b), nil
 	}
 }
 
-func DpStdoutWriteTables(dbms Rdbms, tables []Table, dir string, format uint) error {
+func DpStdoutWriteTables(remote *Remote, tables []Table, dir string, format uint) error {
 	if dir != "" {
 		fs, err := os.Stat(dir)
 		if err != nil && os.IsNotExist(err) {
@@ -62,7 +62,7 @@ func DpStdoutWriteTables(dbms Rdbms, tables []Table, dir string, format uint) er
 			if err != nil {
 				return err
 			}
-			def, err := DpTableString(dbms, tables[i], format)
+			def, err := DpTableString(remote, &tables[i], format)
 			if err != nil {
 				return err
 			}
@@ -74,7 +74,7 @@ func DpStdoutWriteTables(dbms Rdbms, tables []Table, dir string, format uint) er
 	} else {
 		for i := 0; i < len(tables); i++ {
 			var def []byte
-			def, err := DpTableString(dbms, tables[i], format)
+			def, err := DpTableString(remote, &tables[i], format)
 			if err != nil {
 				return err
 			}
@@ -184,21 +184,35 @@ func Program() error {
 		return err
 	}
 
-	cs := ""
-	var dbms Rdbms
+	var cs string
 	switch driver {
 	case "postgres":
-		dbms = RdbmsPgsql()
 		cs, err = conf.PgCs()
 		if err != nil {
 			return err
 		}
 	case "sqlserver":
-		dbms = RdbmsMssql()
 		cs, err = conf.SqlCs()
 		if err != nil {
 			return err
 		}
+	default:
+		return fmt.Errorf("driver is not supported")
+	}
+
+	db, err := sql.Open(
+		driver,
+		cs)
+	if err != nil {
+		return err
+	}
+
+	var remote *Remote
+	switch driver {
+	case "postgres":
+		remote = RemotePgsql(db)
+	case "sqlserver":
+		remote = RemoteMssql(db)
 	default:
 		return fmt.Errorf("driver is not supported")
 	}
@@ -224,13 +238,6 @@ func Program() error {
 		}
 	}
 
-	db, err := sql.Open(
-		driver,
-		cs)
-	if err != nil {
-		return err
-	}
-
 	defer db.Close()
 
 	if conf.Before != nil {
@@ -250,14 +257,14 @@ func Program() error {
 		s := ""
 		if *v {
 			start := time.Now()
-			s, err = MergeRdbmsTables(dbms, db, t)
+			s, err = MergeRemoteTables(remote, t)
 			if err != nil {
 				return err
 			}
 			elapsed := time.Since(start)
 			fmt.Printf("Downloaded remote schema and generated script in %s. \n", elapsed.String())
 		} else {
-			s, err = MergeRdbmsTables(dbms, db, t)
+			s, err = MergeRemoteTables(remote, t)
 			if err != nil {
 				return err
 			}
@@ -269,7 +276,7 @@ func Program() error {
 				c, _, err := DpExecuteCmdsVerbose(db, s)
 				if err != nil {
 					fmt.Println("\033[0;31mcouldnt complete deploy. statements remaining:\033[0m")
-					s, err := MergeRdbmsTables(dbms, db, t)
+					s, err := MergeRemoteTables(remote, t)
 					if err != nil {
 						return err
 					}
@@ -287,18 +294,18 @@ func Program() error {
 			fmt.Print(s)
 		}
 	case "import":
-		tbls, err := RdbmsGetAllTables(dbms, db)
+		tbls, err := RemoteGetAllTables(remote)
 		if err != nil {
 			return err
 		}
 		if *e {
-			err := DpStdoutWriteTables(dbms, tbls, path, *f)
+			err := DpStdoutWriteTables(remote, tbls, path, *f)
 			if err != nil {
 				return err
 			}
 		} else {
 			for i := 0; i < len(tbls); i++ {
-				bf, err := DpTableString(dbms, tbls[i], *f)
+				bf, err := DpTableString(remote, &tbls[i], *f)
 				if err != nil {
 					return err
 				}

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 )
 
-func RdbmsMapTNames(r *sql.Rows) ([]string, error) {
+func MapTableNames(r *sql.Rows) ([]string, error) {
 	buff := list.New()
 	for r.Next() {
 		var t string
@@ -24,7 +24,7 @@ func RdbmsMapTNames(r *sql.Rows) ([]string, error) {
 	return ret, nil
 }
 
-func RdbmsMapCheck(r *sql.Rows) ([]Check, error) {
+func MapCheck(r *sql.Rows) ([]Check, error) {
 	tmp := list.New()
 	for r.Next() {
 		var k Check
@@ -43,7 +43,7 @@ func RdbmsMapCheck(r *sql.Rows) ([]Check, error) {
 	return cs, nil
 }
 
-func RdbmsMapColumns(r *sql.Rows) ([]Column, error) {
+func MapColumns(r *sql.Rows) ([]Column, error) {
 
 	buff := list.New()
 	for r.Next() {
@@ -70,7 +70,7 @@ func RdbmsMapColumns(r *sql.Rows) ([]Column, error) {
 	return ret, nil
 }
 
-func RdbmsMapCColumns(r *sql.Rows) ([]ConstraintColumn, error) {
+func MapCColumns(r *sql.Rows) ([]ConstraintColumn, error) {
 	tmp := list.New()
 
 	for r.Next() {
@@ -88,7 +88,7 @@ func RdbmsMapCColumns(r *sql.Rows) ([]ConstraintColumn, error) {
 	return cols, nil
 }
 
-func RdbmsMapIxColumns(rows *sql.Rows) ([]IndexColumn, error) {
+func MapIxColumns(rows *sql.Rows) ([]IndexColumn, error) {
 	ccs := list.New()
 	for rows.Next() {
 		var cc IndexColumn
