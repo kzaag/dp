@@ -20,6 +20,10 @@
             "name": "y",
             "type": "varchar",
             "max_length": 20
+        },
+        {
+            "name": "z",
+            "type": "int"
         }
     ],
     "primary": {

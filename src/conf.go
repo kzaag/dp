@@ -149,16 +149,16 @@ func ConfParseKeyVal(conf string) ([]string, []string, error) {
 			continue
 		}
 
+		if strings.HasPrefix(lines[i], "#") {
+			continue
+		}
+
 		split := strings.SplitN(lines[i], "=", 2)
 		if len(split) != 2 || split[0] == "" {
 			return nil, nil, fmt.Errorf("error: malformed config entry - " + lines[i])
 		}
 
 		ConfCleanKey(&split[0])
-
-		if strings.HasPrefix(split[0], "#") {
-			continue
-		}
 
 		keys[i] = split[0]
 		vals[i] = split[1]
