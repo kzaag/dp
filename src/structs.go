@@ -62,6 +62,24 @@ type Table struct {
 	Indexes []Index
 }
 
+type Type struct {
+	Name    string
+	Type    string
+	Columns []string
+}
+
+type Param struct {
+	Name string
+	Type string
+}
+
+type Routine struct {
+	Name string
+	Args []Param
+	Ret  string
+	Def  string
+}
+
 type DbConstraint struct {
 	Name string
 	Type string

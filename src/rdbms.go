@@ -800,3 +800,27 @@ func RemoteGetTableDef(remote *Remote, tableName string) (*Table, error) {
 
 	return &tbl, nil
 }
+
+func RemoteGetAllRoutines(r *Remote, tableName string) ([]Routine, error) {
+	var query string
+	switch r.tp {
+	case Pgsql:
+		query = `select table_name 
+				from information_schema.tables 
+				where table_type = 'BASE TABLE' and table_schema = 'public'`
+	default:
+		panic("remote type not implemented")
+	}
+
+	rows, err := r.conn.Query(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, err := MapTableNames(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
