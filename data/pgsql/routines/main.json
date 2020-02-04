@@ -1,0 +1,6 @@
+{
+    "name": "main",
+    "lang": "pgplsql",
+    "def": "insert into foo (val, x) values ('112', 12.2); select a;",
+    "ret": "int"
+}

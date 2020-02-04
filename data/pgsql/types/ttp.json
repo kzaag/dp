@@ -1,0 +1,5 @@
+{
+    "name": "ttp",
+    "type": "enum",
+    "vals":["a", "b", "c"]
+}

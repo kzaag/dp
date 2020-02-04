@@ -1,0 +1,6 @@
+{
+    "name": "second",
+    "lang": "pgplsql",
+    "def": "second.sql",
+    "ret": "int"
+}
