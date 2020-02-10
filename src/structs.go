@@ -42,12 +42,23 @@ type ForeignKey struct {
 	Constraint
 }
 
-type Column struct {
+type RawColumn struct {
 	Name        string
 	Type        string
 	Max_length  int
 	Precision   int
 	Scale       int
+	Is_nullable bool
+	Is_Identity bool
+}
+
+func (rc *RawColumn) ToColumn(r *Remote) Column {
+	return Column{rc.Name, RemoteColumnType(r, rc), rc.Is_nullable, rc.Is_Identity}
+}
+
+type Column struct {
+	Name        string
+	Type        string
 	Is_nullable bool
 	Is_Identity bool
 }
@@ -62,22 +73,16 @@ type Table struct {
 	Indexes []Index
 }
 
+const (
+	TT_Enum      string = "Enum"
+	TT_Composite string = "Composite"
+)
+
 type Type struct {
 	Name    string
 	Type    string
-	Columns []string
-}
-
-type Param struct {
-	Name string
-	Type string
-}
-
-type Routine struct {
-	Name string
-	Args []Param
-	Ret  string
-	Def  string
+	Values  []string
+	Columns []Column
 }
 
 type DbConstraint struct {

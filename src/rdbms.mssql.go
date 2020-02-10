@@ -18,7 +18,7 @@ func MssqlSchemaName(name string) (string, string, error) {
 	return sn[0], sn[1], nil
 }
 
-func MssqlColumnType(column *Column) string {
+func MssqlColumnType(column *RawColumn) string {
 	cs := ""
 	switch strings.ToLower(column.Type) {
 	case "nvarchar":
@@ -60,9 +60,7 @@ func MssqlColumnType(column *Column) string {
 }
 
 func MssqlAlterColumn(r *Remote, tableName string, c *Column) string {
-	s := c.Name + " "
-
-	s += MssqlColumnType(c)
+	s := c.Name + " " + c.Type
 
 	if !c.Is_nullable {
 		s += " NOT NULL"

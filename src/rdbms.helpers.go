@@ -43,11 +43,11 @@ func MapCheck(r *sql.Rows) ([]Check, error) {
 	return cs, nil
 }
 
-func MapColumns(r *sql.Rows) ([]Column, error) {
+func MapColumns(remote *Remote, r *sql.Rows) ([]Column, error) {
 
 	buff := list.New()
 	for r.Next() {
-		var el Column
+		var el RawColumn
 		err := r.Scan(
 			&el.Name,
 			&el.Type,
@@ -59,7 +59,7 @@ func MapColumns(r *sql.Rows) ([]Column, error) {
 		if err != nil {
 			return nil, err
 		}
-		buff.PushBack(el)
+		buff.PushBack(el.ToColumn(remote))
 	}
 
 	var ret = make([]Column, buff.Len())

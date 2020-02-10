@@ -9,8 +9,7 @@
         },
         {
             "name": "val",
-            "type":"varchar",
-            "max_length": 20
+            "type":"varchar(20)"
         },
         {
             "name": "x",
@@ -18,8 +17,7 @@
         },
         {
             "name": "y",
-            "type": "varchar",
-            "max_length": 20
+            "type": "varchar(20)"
         },
         {
             "name": "z",

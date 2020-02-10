@@ -28,7 +28,7 @@ func RemotePgsql(db *sql.DB) *Remote {
 	return &r
 }
 
-func RemoteColumnType(r *Remote, c *Column) string {
+func RemoteColumnType(r *Remote, c *RawColumn) string {
 	switch r.tp {
 	case Mssql:
 		return PgsqlColumnType(c)
@@ -170,9 +170,7 @@ func RemoteDropIx(r *Remote, tableName string, i *Index) string {
 }
 
 func RemoteAddColumn(r *Remote, tableName string, c *Column) string {
-	s := c.Name + " "
-
-	s += RemoteColumnType(r, c)
+	s := c.Name + " " + c.Type
 
 	if !c.Is_nullable {
 		s += " NOT NULL"
@@ -249,9 +247,7 @@ func RemoteGetMatchTables(remote *Remote, userTables []Table) ([]Table, error) {
 func RemoteColumn(remote *Remote, column *Column) string {
 	var cs string
 
-	cs += column.Name + " "
-
-	cs += RemoteColumnType(remote, column)
+	cs += column.Name + " " + column.Type
 
 	if !column.Is_nullable {
 		cs += " NOT NULL"
@@ -273,6 +269,47 @@ func RemoteColumn(remote *Remote, column *Column) string {
 	return cs
 }
 
+func RemoteTypeDef(remote *Remote, t *Type) string {
+
+	if remote.tp != Pgsql {
+		panic("not implemented")
+	}
+
+	ret := ""
+
+	ret += "CREATE TYPE AS " + t.Name
+
+	switch t.Type {
+	case TT_Enum:
+
+		ret += " ENUM ("
+
+		for i := 0; i < len(t.Values); i++ {
+			if i > 0 {
+				ret += ","
+			}
+			ret += t.Values[i]
+		}
+
+		ret += ");\n"
+
+	case TT_Composite:
+
+		ret += " ("
+
+		for i := 0; i < len(t.Columns); i++ {
+			if i > 0 {
+				ret += ","
+			}
+			ret += RemoteColumn(remote, &t.Columns[i])
+		}
+
+		ret += ");\n"
+	}
+
+	return ret
+}
+
 func RemoteTableDef(remote *Remote, t *Table) string {
 	ret := ""
 
@@ -281,8 +318,7 @@ func RemoteTableDef(remote *Remote, t *Table) string {
 	if t.Columns != nil {
 		for i := 0; i < len(t.Columns); i++ {
 			column := &t.Columns[i]
-			columnStr := column.Name + " "
-			columnStr += RemoteColumnType(remote, column)
+			columnStr := column.Name + " " + column.Type
 			if column.Is_nullable {
 				columnStr += " NULL"
 			} else {
@@ -460,7 +496,7 @@ func RemoteGetAllColumn(r *Remote, tableName string) ([]Column, error) {
 		return nil, err
 	}
 
-	c, err := MapColumns(rows)
+	c, err := MapColumns(r, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -801,25 +837,50 @@ func RemoteGetTableDef(remote *Remote, tableName string) (*Table, error) {
 	return &tbl, nil
 }
 
-func RemoteGetAllRoutines(r *Remote, tableName string) ([]Routine, error) {
-	var query string
-	switch r.tp {
-	case Pgsql:
-		query = `select table_name 
-				from information_schema.tables 
-				where table_type = 'BASE TABLE' and table_schema = 'public'`
-	default:
-		panic("remote type not implemented")
+func TExists(t Type, localTypes []Type) bool {
+	for i := 0; i < len(localTypes); i++ {
+		if localTypes[i].Name == t.Name {
+			return true
+		}
+	}
+	return false
+}
+
+func RemoteGetTypes(r *Remote, localTypes []Type) ([]Type, error) {
+	if r.tp != Pgsql {
+		// not implemented to mssql yet
+		return nil, nil
 	}
 
-	rows, err := r.conn.Query(query)
+	enums, err := PgsqlGetEnum(r)
 	if err != nil {
 		return nil, err
 	}
 
-	ret, err := MapTableNames(rows)
+	composite, err := PgsqlGetComposite(r)
 	if err != nil {
 		return nil, err
+	}
+
+	cb := list.New()
+
+	for x := enums.Front(); x != nil; x = x.Next() {
+		v := x.Value.(Type)
+		if TExists(v, localTypes) {
+			cb.PushBack(v)
+		}
+	}
+
+	for x := composite.Front(); x != nil; x = x.Next() {
+		v := x.Value.(Type)
+		if TExists(v, localTypes) {
+			cb.PushBack(v)
+		}
+	}
+
+	ret := make([]Type, cb.Len())
+	for i, x := 0, cb.Front(); x != nil; i, x = i+1, x.Next() {
+		ret[i] = x.Value.(Type)
 	}
 
 	return ret, nil

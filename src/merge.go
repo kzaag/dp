@@ -16,11 +16,27 @@ type Merger struct {
 	remTypes   []Type
 	localTypes []Type
 
-	remRtn   []Routine
-	localRtn []Routine
-
 	create *string
 	drop   *string
+}
+
+func MergeNew() *Merger {
+	return &Merger{}
+}
+
+func (m *Merger) SetBuffers(create *string, drop *string) {
+	m.create = create
+	m.drop = drop
+}
+
+func (m *Merger) SetLocalSchema(t []Table, tp []Type) {
+	m.localTables = t
+	m.localTypes = tp
+}
+
+func (m *Merger) SetRemoteSchema(t []Table, tp []Type) {
+	m.remTables = t
+	m.remTypes = tp
 }
 
 const (
@@ -615,66 +631,112 @@ func MergeFindTable(name string, tables []Table) *Table {
 	return t
 }
 
-func MergeRemoteTables(rem *Remote, localTables []Table) (string, error) {
+func MergeFindType(t Type, ts []Type) *Type {
 
-	remTables, err := RemoteGetMatchTables(rem, localTables)
-	if err != nil {
-		return "", err
+	for i := 0; i < len(ts); i++ {
+
+		if t.Name == ts[i].Name {
+			return &ts[i]
+		}
+
 	}
 
-	drop := ""
-	create := ""
-	devnull := ""
+	return nil
+}
 
-	mrg := Merger{remTables, localTables, nil, nil, nil, nil, &create, &drop}
+func MergeTables(mrg *Merger, rem *Remote) {
+
+	var devnull string
 
 	for i := 0; i < len(mrg.localTables); i++ {
 
-		if MergeFindTable(mrg.localTables[i].Name, remTables) == nil {
+		if MergeFindTable(mrg.localTables[i].Name, mrg.remTables) == nil {
 
-			create += RemoteTableDef(rem, &mrg.localTables[i])
+			*mrg.create += RemoteTableDef(rem, &mrg.localTables[i])
 		}
 	}
+
+	drop := mrg.drop
 
 	mrg.drop = &devnull
 
 	for i := 0; i < len(mrg.localTables); i++ {
 
 		t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables)
-		MergeColumns(rem, &mrg, &mrg.localTables[i], t)
+		MergeColumns(rem, mrg, &mrg.localTables[i], t)
+
 	}
 
-	mrg.drop = &drop
+	mrg.drop = drop
 
 	for i := 0; i < len(mrg.localTables); i++ {
 
 		t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables)
-		MergePrimary(rem, &mrg, &mrg.localTables[i], t)
-	}
+		MergePrimary(rem, mrg, &mrg.localTables[i], t)
 
-	for i := 0; i < len(mrg.localTables); i++ {
-
-		t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables)
-		MergeUnique(rem, &mrg, &mrg.localTables[i], t)
 	}
 
 	for i := 0; i < len(mrg.localTables); i++ {
 
 		t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables)
-		MergeFK(rem, &mrg, &mrg.localTables[i], t)
-		MergeCheck(rem, &mrg, &mrg.localTables[i], t)
-		MergeIx(rem, &mrg, &mrg.localTables[i], t)
+		MergeUnique(rem, mrg, &mrg.localTables[i], t)
+
 	}
 
+	for i := 0; i < len(mrg.localTables); i++ {
+
+		t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables)
+		MergeFK(rem, mrg, &mrg.localTables[i], t)
+		MergeCheck(rem, mrg, &mrg.localTables[i], t)
+		MergeIx(rem, mrg, &mrg.localTables[i], t)
+
+	}
+
+	create := mrg.create
 	mrg.create = &devnull
 
 	for i := 0; i < len(mrg.localTables); i++ {
 
-		t := MergeFindTable(mrg.localTables[i].Name, remTables)
-		MergeColumns(rem, &mrg, &mrg.localTables[i], t)
+		t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables)
+		MergeColumns(rem, mrg, &mrg.localTables[i], t)
+
 	}
 
-	mrg.create = &create
+	mrg.create = create
+
+}
+
+func MergeTypes(m *Merger, rem *Remote) {
+
+	for i := 0; i < len(m.localTypes); i++ {
+
+		if t := MergeFindType(m.localTypes[i], m.remTypes); t != nil {
+
+			// merge found type ...
+
+		} else {
+
+			MergeAddOperation(m.create, RemoteTypeDef(rem, t))
+
+		}
+
+	}
+
+}
+
+// merge remote schema with local
+func MergeSchema(mrg *Merger, rem *Remote) (string, error) {
+
+	drop := ""
+	create := ""
+
+	mrg.SetBuffers(&create, &drop)
+
+	if mrg.localTypes != nil {
+		MergeTypes(mrg, rem)
+	}
+
+	MergeTables(mrg, rem)
 
 	cmd := ""
 	cmd += drop

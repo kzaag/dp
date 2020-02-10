@@ -1,0 +1,10 @@
+{
+    "name": "bbar",
+    "type": "composite",
+    "columns": [
+        {
+            "name": "a",
+            "type": "int"
+        }
+    ]
+}

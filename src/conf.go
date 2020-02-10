@@ -45,12 +45,22 @@ func ConfScriptSpec(spec string) (*ScriptSpec, error) {
 	return &ret, nil
 }
 
-func (c Config) Get(key string) (string, error) {
+func (c *Config) Get(key string) (string, error) {
 	ret := c.Values[key]
 	if ret == "" {
 		return "", fmt.Errorf("key '" + key + "' not found in config")
 	}
 	return ret, nil
+}
+
+// this method will either return value or panic
+// meant to be called after Get was already called on specific key thus not expecting failure
+func (c *Config) MustGet(key string) string {
+	if v, err := c.Get(key); err != nil {
+		panic(err)
+	} else {
+		return v
+	}
 }
 
 func (c Config) SqlCs() (string, error) {
