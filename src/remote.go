@@ -28,10 +28,10 @@ func RemotePgsql(db *sql.DB) *Remote {
 	return &r
 }
 
-func RemoteColumnType(r *Remote, c *RawColumn) string {
+func RemoteColumnType(r *Remote, c *Column) string {
 	switch r.tp {
 	case Mssql:
-		return PgsqlColumnType(c)
+		return MssqlColumnType(c)
 	case Pgsql:
 		return PgsqlColumnType(c)
 	default:
@@ -170,20 +170,8 @@ func RemoteDropIx(r *Remote, tableName string, i *Index) string {
 }
 
 func RemoteAddColumn(r *Remote, tableName string, c *Column) string {
-	s := c.Name + " " + c.Type
 
-	if !c.Is_nullable {
-		s += " NOT NULL"
-	}
-
-	if c.Is_Identity {
-		switch r.tp {
-		case Pgsql:
-			s += " GENERATED ALWAYS AS IDENTITY"
-		default:
-			s += " IDENTITY"
-		}
-	}
+	s := RemoteColumn(r, c)
 
 	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
 }
@@ -247,15 +235,16 @@ func RemoteGetMatchTables(remote *Remote, userTables []Table) ([]Table, error) {
 func RemoteColumn(remote *Remote, column *Column) string {
 	var cs string
 
-	cs += column.Name + " " + column.Type
+	cs += column.Name + " " + column.FullType
 
-	if !column.Is_nullable {
+	if column.IsNull0() {
+	} else if !column.Nullable {
 		cs += " NOT NULL"
 	} else {
 		cs += " NULL"
 	}
 
-	if column.Is_Identity {
+	if column.Identity && !column.IsIde0() {
 		switch remote.tp {
 		case Mssql:
 			cs += " IDENTITY"
@@ -277,7 +266,7 @@ func RemoteTypeDef(remote *Remote, t *Type) string {
 
 	ret := ""
 
-	ret += "CREATE TYPE AS " + t.Name
+	ret += "CREATE TYPE " + t.Name + " AS"
 
 	switch t.Type {
 	case TT_Enum:
@@ -288,7 +277,7 @@ func RemoteTypeDef(remote *Remote, t *Type) string {
 			if i > 0 {
 				ret += ","
 			}
-			ret += t.Values[i]
+			ret += "'" + t.Values[i] + "'"
 		}
 
 		ret += ");\n"
@@ -318,22 +307,7 @@ func RemoteTableDef(remote *Remote, t *Table) string {
 	if t.Columns != nil {
 		for i := 0; i < len(t.Columns); i++ {
 			column := &t.Columns[i]
-			columnStr := column.Name + " " + column.Type
-			if column.Is_nullable {
-				columnStr += " NULL"
-			} else {
-				columnStr += " NOT NULL"
-			}
-			if column.Is_Identity {
-				switch remote.tp {
-				case Mssql:
-					columnStr += " IDENTITY"
-				case Pgsql:
-					columnStr += " GENERATED ALWAYS AS IDENTITY"
-				default:
-					panic("remote type not implemented")
-				}
-			}
+			columnStr := RemoteColumn(remote, column)
 			ret += "\t" + columnStr + ",\n"
 		}
 	}
@@ -479,7 +453,7 @@ func RemoteGetAllColumn(r *Remote, tableName string) ([]Column, error) {
 		rows, err = r.conn.Query(
 			`select 
 				column_name, 
-				data_type, 
+				udt_name,--UPPER(data_type), 
 				coalesce(character_maximum_length, -1), 
 				coalesce(numeric_precision, datetime_precision,  -1), 
 				coalesce(numeric_scale, -1), 
@@ -796,6 +770,7 @@ func RemoteGetTableDef(remote *Remote, tableName string) (*Table, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if cols == nil || len(cols) == 0 {
 		return nil, nil
 	}
@@ -871,8 +846,8 @@ func RemoteGetTypes(r *Remote, localTypes []Type) ([]Type, error) {
 		}
 	}
 
-	for x := composite.Front(); x != nil; x = x.Next() {
-		v := x.Value.(Type)
+	for i := 0; i < len(composite); i++ {
+		v := composite[i]
 		if TExists(v, localTypes) {
 			cb.PushBack(v)
 		}
@@ -884,4 +859,14 @@ func RemoteGetTypes(r *Remote, localTypes []Type) ([]Type, error) {
 	}
 
 	return ret, nil
+}
+
+func RemoteDropType(r *Remote, t *Type) string {
+
+	if r.tp != Pgsql {
+		return EMPTY
+	}
+
+	return "DROP TYPE " + t.Name + ";\n"
+
 }

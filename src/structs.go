@@ -42,25 +42,50 @@ type ForeignKey struct {
 	Constraint
 }
 
-type RawColumn struct {
-	Name        string
-	Type        string
-	Max_length  int
-	Precision   int
-	Scale       int
-	Is_nullable bool
-	Is_Identity bool
-}
+type ColumnMeta int
 
-func (rc *RawColumn) ToColumn(r *Remote) Column {
-	return Column{rc.Name, RemoteColumnType(r, rc), rc.Is_nullable, rc.Is_Identity}
-}
+const (
+	// not null / null is not supported for given column
+	CM_Null0 = iota
+	// identity values are disabled
+	CM_Ide0 = iota
+)
 
 type Column struct {
-	Name        string
-	Type        string
-	Is_nullable bool
-	Is_Identity bool
+	Name string
+
+	/*
+		user should realize that specifying FullType instead of time does not require
+		specifying Precision, Scale and type fields which may seem to be easier but
+		becuase many rdbs use aliases for type ( user inputs `INT` but pgsql will output this as `INTEGER` )
+		user must be very cautious whilst doing it.
+
+		however user type is supported anyways because of situations in which we cant get full column architecture
+		but only string representation
+	*/
+	Type      string
+	FullType  string
+	Length    int
+	Precision int
+	Scale     int
+	Nullable  bool
+	Identity  bool
+
+	// extra metadata which specifies extra behaviour about column ( example: like composite type column which cannot be not null)
+	Meta ColumnMeta
+}
+
+func (c *Column) IsIde0() bool {
+	return (c.Meta & CM_Ide0) == 0
+}
+
+func (c *Column) IsNull0() bool {
+	return (c.Meta & CM_Null0) == 0
+}
+
+// will set FullType field based on rest of fields
+func (rc *Column) SetFullType(r *Remote) {
+	rc.FullType = RemoteColumnType(r, rc)
 }
 
 type Table struct {

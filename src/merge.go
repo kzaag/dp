@@ -44,8 +44,13 @@ const (
 	DC_TYPE_FK = iota
 	DC_TYPE_UQ = iota
 	DC_TYPE_CH = iota
+	DC_TYPE_C  = iota
 )
 
+// probably could have implemented this as one int -> pointer to void
+// and then based on type unbox value pointed by it.
+// but that would be potentially unsafe + i'd like to keep code as simple as possible
+// problem is already pretty complex.
 type MergeDropBuff struct {
 	Table   string
 	Type    uint
@@ -53,22 +58,27 @@ type MergeDropBuff struct {
 	Primary *PrimaryKey
 	Unique  *Unique
 	Check   *Check
+	Column  *Column
 }
 
 func MergeNewDropFk(tableName string, fk *ForeignKey) MergeDropBuff {
-	return MergeDropBuff{tableName, DC_TYPE_FK, fk, nil, nil, nil}
+	return MergeDropBuff{tableName, DC_TYPE_FK, fk, nil, nil, nil, nil}
 }
 
 func MergeNewDropPk(tableName string, pk *PrimaryKey) MergeDropBuff {
-	return MergeDropBuff{tableName, DC_TYPE_PK, nil, pk, nil, nil}
+	return MergeDropBuff{tableName, DC_TYPE_PK, nil, pk, nil, nil, nil}
 }
 
 func MergeNewDropUq(tablename string, u *Unique) MergeDropBuff {
-	return MergeDropBuff{tablename, DC_TYPE_UQ, nil, nil, u, nil}
+	return MergeDropBuff{tablename, DC_TYPE_UQ, nil, nil, u, nil, nil}
 }
 
 func MergeNewDropCh(tablename string, c *Check) MergeDropBuff {
-	return MergeDropBuff{tablename, DC_TYPE_CH, nil, nil, nil, c}
+	return MergeDropBuff{tablename, DC_TYPE_CH, nil, nil, nil, c, nil}
+}
+
+func MergeNewDropC(tablename string, c *Column) MergeDropBuff {
+	return MergeDropBuff{tablename, DC_TYPE_C, nil, nil, nil, nil, c}
 }
 
 func (d MergeDropBuff) IsPk() bool {
@@ -85,6 +95,10 @@ func (d MergeDropBuff) IsUq() bool {
 
 func (d MergeDropBuff) IsCh() bool {
 	return d.Type == DC_TYPE_CH
+}
+
+func (d MergeDropBuff) IsC() bool {
+	return d.Type == DC_TYPE_C
 }
 
 func MergeAddOperation(dest *string, elem string) {
@@ -154,6 +168,7 @@ func MergeCompareCColumn(c1 []ConstraintColumn, c2 []ConstraintColumn) bool {
 func MergeCompareColumn(rem *Remote, c1 *Column, c2 *Column) bool {
 	dcStr := RemoteAddColumn(rem, "", c1)
 	userColStr := RemoteAddColumn(rem, "", c2)
+
 	if dcStr == userColStr {
 		return true
 	}
@@ -169,6 +184,7 @@ func MergeColumns(rem *Remote, mrg *Merger, localTable *Table, remTable *Table) 
 	matchedIxs := list.New()
 	if localTable.Columns != nil {
 		for i := 0; i < len(localTable.Columns); i++ {
+
 			uc := &localTable.Columns[i]
 			var index int = -1
 			if remTable.Columns != nil {
@@ -193,7 +209,7 @@ func MergeColumns(rem *Remote, mrg *Merger, localTable *Table, remTable *Table) 
 
 				drefs := MergeDropColRefs(rem, dc, remTable, mrg.remTables, mrg.drop)
 
-				if dc.Is_Identity != uc.Is_Identity {
+				if dc.Identity != uc.Identity {
 
 					MergeAddOperation(mrg.drop, RemoteDropColumn(rem, localTable.Name, dc))
 					MergeAddOperation(mrg.create, RemoteAddColumn(rem, localTable.Name, uc))
@@ -481,6 +497,64 @@ func MergeDropColRefs(rem *Remote, col *Column, table *Table, tables []Table, dr
 	return ret
 }
 
+func MergeRecreateDropBuff(rem *Remote, m *Merger, dc []MergeDropBuff) {
+	if dc == nil {
+		return
+	}
+
+	for i := len(dc) - 1; i >= 0; i-- {
+		dropBuff := dc[i]
+		for j := 0; j < len(m.localTables); j++ {
+
+			table := &m.localTables[j]
+
+			if table.Name != dropBuff.Table {
+				continue
+			}
+
+			switch dropBuff.Type {
+			case DC_TYPE_FK:
+				if table.Foreign == nil {
+					continue
+				}
+				for z := 0; z < len(table.Foreign); z++ {
+					fk := &table.Foreign[z]
+					if fk.Name == dropBuff.Foreign.Name {
+						MergeAddOperation(m.create, RemoteAddFk(rem, table.Name, fk))
+					}
+				}
+			case DC_TYPE_PK:
+				if table.Primary == nil {
+					continue
+				}
+				pk := table.Primary
+				if pk.Name == dropBuff.Primary.Name {
+					MergeAddOperation(m.create, RemoteAddPk(rem, table.Name, pk))
+				}
+			case DC_TYPE_UQ:
+				if table.Unique == nil {
+					continue
+				}
+				u := table.Unique
+				for z := 0; z < len(u); z++ {
+					uu := &u[z]
+					if uu.Name == dropBuff.Unique.Name {
+						MergeAddOperation(m.create, RemoteAddUnique(rem, table.Name, uu))
+					}
+				}
+			case DC_TYPE_C:
+				for z := 0; z < len(table.Columns); z++ {
+					c := &table.Columns[i]
+					if c.Name == dropBuff.Column.Name {
+						MergeAddOperation(m.create, RemoteAddColumn(rem, table.Name, c))
+					}
+				}
+			}
+		}
+	}
+}
+
+// Obsolete : this method will be removed
 func MergeRecreateColRefs(rem *Remote, tables []Table, create *string, dc []MergeDropBuff) {
 	if dc == nil {
 		return
@@ -558,6 +632,7 @@ func MergeDropPkRefs(rem *Remote, tableName string, tables []Table, drop *string
 	return ret
 }
 
+// Obsolete : this method will be removed
 func MergeRecreatePkRefs(rem *Remote, tables []Table, create *string, dc []MergeDropBuff) {
 	if dc == nil {
 		return
@@ -617,6 +692,91 @@ func MergePrimary(rem *Remote, mrg *Merger, localTable *Table, remTable *Table) 
 	}
 }
 
+func MergeDropCompositeRefs(rem *Remote, m *Merger, lt *Type) []MergeDropBuff {
+
+	var ret []MergeDropBuff
+
+	for i := 0; i < len(m.remTables); i++ {
+
+		t := &m.remTables[i]
+
+		for j := 0; j < len(t.Columns); j++ {
+
+			c := &t.Columns[j]
+
+			if c.FullType == lt.Name {
+				MergeAddOperation(m.drop, RemoteDropColumn(rem, t.Name, c))
+				ret = append(ret, MergeNewDropC(t.Name, c))
+
+			}
+
+		}
+
+	}
+
+	return ret
+}
+
+func MergeRecreateCompositeRefs(rem *Remote, m *Merger, db []MergeDropBuff) {
+
+}
+
+func MergeComposite(rem *Remote, m *Merger, lt *Type, rt *Type) {
+
+	var eq bool = true
+
+	if len(lt.Columns) != len(rt.Columns) {
+
+		eq = false
+
+	} else {
+
+		for i := 0; i < len(lt.Columns); i++ {
+
+			for j := 0; j < len(rt.Columns); j++ {
+
+				if !MergeCompareColumn(rem, &lt.Columns[i], &rt.Columns[j]) {
+					eq = false
+				}
+
+			}
+
+		}
+
+	}
+
+	if eq {
+		return
+	}
+
+	db := MergeDropCompositeRefs(rem, m, rt)
+
+	MergeAddOperation(m.drop, RemoteDropType(rem, rt))
+
+	MergeAddOperation(m.create, RemoteTypeDef(rem, lt))
+
+	MergeRecreateDropBuff(rem, m, db)
+}
+
+func MergeType(rem *Remote, m *Merger, lt *Type, rt *Type) {
+
+	if rt.Type == lt.Type {
+
+		switch lt.Type {
+		case TT_Composite:
+
+			MergeComposite(rem, m, lt, rt)
+
+		case TT_Enum:
+
+			// ...
+
+		}
+
+	}
+
+}
+
 func MergeFindTable(name string, tables []Table) *Table {
 	var index int = -1
 	for j := 0; j < len(tables); j++ {
@@ -631,7 +791,7 @@ func MergeFindTable(name string, tables []Table) *Table {
 	return t
 }
 
-func MergeFindType(t Type, ts []Type) *Type {
+func MergeFindType(t *Type, ts []Type) *Type {
 
 	for i := 0; i < len(ts); i++ {
 
@@ -710,13 +870,15 @@ func MergeTypes(m *Merger, rem *Remote) {
 
 	for i := 0; i < len(m.localTypes); i++ {
 
-		if t := MergeFindType(m.localTypes[i], m.remTypes); t != nil {
+		lt := &m.localTypes[i]
 
-			// merge found type ...
+		if rt := MergeFindType(lt, m.remTypes); rt != nil {
+
+			MergeType(rem, m, lt, rt)
 
 		} else {
 
-			MergeAddOperation(m.create, RemoteTypeDef(rem, t))
+			MergeAddOperation(m.create, RemoteTypeDef(rem, lt))
 
 		}
 

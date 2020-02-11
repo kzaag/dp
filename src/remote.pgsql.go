@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func PgsqlColumnType(column *RawColumn) string {
+func PgsqlColumnType(column *Column) string {
 	cs := ""
 	switch strings.ToLower(column.Type) {
 	case "bit":
@@ -28,10 +28,10 @@ func PgsqlColumnType(column *RawColumn) string {
 		}
 		fallthrough
 	case "character varying":
-		if column.Max_length == -1 {
+		if column.Length == -1 {
 			cs += strings.ToUpper(column.Type) + "(MAX)"
 		} else {
-			cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(column.Max_length) + ")"
+			cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(column.Length) + ")"
 		}
 	case "int8":
 		fallthrough
@@ -153,7 +153,8 @@ func PgsqlColumnType(column *RawColumn) string {
 	case "timestamp with time zone":
 		cs += "TIMESTAMP(" + strconv.Itoa(int(column.Precision)) + ") WITH TIME ZONE"
 	default:
-		panic("no pgsql mapper for type : " + strings.ToLower(column.Type))
+		//panic("no pgsql mapper for type : " + strings.ToLower(column.Type))
+		return column.Type
 	}
 	return cs
 }
@@ -162,7 +163,7 @@ func PgsqlAlterColumn(r *Remote, tableName string, sc *Column, c *Column) string
 
 	ret := ""
 
-	if sc.Type != c.Type {
+	if sc.FullType != c.FullType {
 
 		s := "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name + " SET DATA TYPE " + c.Type
 
@@ -174,9 +175,9 @@ func PgsqlAlterColumn(r *Remote, tableName string, sc *Column, c *Column) string
 		ret += s
 	}
 
-	if sc.Is_nullable != c.Is_nullable {
+	if sc.Nullable != c.Nullable {
 		s := "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name
-		if c.Is_nullable {
+		if c.Nullable {
 			s += " DROP NOT NULL"
 		} else {
 			s += " SET NOT NULL"
@@ -189,7 +190,7 @@ func PgsqlAlterColumn(r *Remote, tableName string, sc *Column, c *Column) string
 
 func PgsqlGetEnum(r *Remote) (*list.List, error) {
 
-	q := `select typname from pg_type where typcategory = 'E';`
+	q := `select typname from pg_type where typcategory = 'E'`
 	rows, err := r.conn.Query(q)
 	if err != nil {
 		return nil, err
@@ -238,33 +239,34 @@ func PgsqlGetEnum(r *Remote) (*list.List, error) {
 	return tps, nil
 }
 
-func PgsqlGetComposite(r *Remote) (*list.List, error) {
+func PgsqlGetComposite(r *Remote) ([]Type, error) {
 
-	q := `select typname from pg_type where typcategory = 'C';`
+	q := `select typname from pg_type where typcategory = 'C' and typarray <> 0;`
 	rows, err := r.conn.Query(q)
 	if err != nil {
 		return nil, err
 	}
 
-	tps := list.New()
+	var tps []Type
+
 	for rows.Next() {
 		var name string
 		err := rows.Scan(&name)
 		if err != nil {
 			return nil, err
 		}
-		tps.PushBack(Type{name, TT_Composite, nil, nil})
+		tps = append(tps, Type{name, TT_Composite, nil, nil})
 	}
 
-	query := `SELECT attname, format_type(atttypid, atttypmod) AS type
+	query := `SELECT attname, UPPER(format_type(atttypid, atttypmod)) AS type
 			FROM   pg_attribute
 			WHERE  attrelid = $1::regclass
 			AND    attnum > 0
 			AND    NOT attisdropped
 			ORDER  BY attnum;`
 
-	for x := tps.Front(); x != nil; x = x.Next() {
-		tp := x.Value.(Type)
+	for i := 0; i < len(tps); i++ {
+		tp := &tps[i]
 		rows, err := r.conn.Query(query, tp.Name)
 		if err != nil {
 			return nil, err
@@ -275,7 +277,7 @@ func PgsqlGetComposite(r *Remote) (*list.List, error) {
 			var colname string
 			var coltype string
 			err := rows.Scan(&colname, &coltype)
-			c := Column{colname, coltype, false, false}
+			c := Column{colname, "", coltype, -1, -1, -1, false, false, CM_Null0 | CM_Ide0}
 			if err != nil {
 				return nil, err
 			}

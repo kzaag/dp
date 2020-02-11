@@ -18,22 +18,22 @@ func MssqlSchemaName(name string) (string, string, error) {
 	return sn[0], sn[1], nil
 }
 
-func MssqlColumnType(column *RawColumn) string {
+func MssqlColumnType(column *Column) string {
 	cs := ""
 	switch strings.ToLower(column.Type) {
 	case "nvarchar":
-		if column.Max_length == -1 {
+		if column.Length == -1 {
 			cs += strings.ToUpper(column.Type) + "(MAX)"
 		} else {
-			cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(column.Max_length/2) + ")"
+			cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(column.Length/2) + ")"
 		}
 	case "varbinary":
 		fallthrough
 	case "varchar":
-		if column.Max_length == -1 {
+		if column.Length == -1 {
 			cs += strings.ToUpper(column.Type) + "(MAX)"
 		} else {
-			cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(column.Max_length) + ")"
+			cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(column.Length) + ")"
 		}
 	case "int":
 		fallthrough
@@ -48,7 +48,7 @@ func MssqlColumnType(column *RawColumn) string {
 	case "uniqueidentifier":
 		cs += strings.ToUpper(column.Type)
 	case "binary":
-		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Max_length)) + ")"
+		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Length)) + ")"
 	case "datetime2":
 		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Scale)) + ")"
 	case "decimal":
@@ -62,7 +62,7 @@ func MssqlColumnType(column *RawColumn) string {
 func MssqlAlterColumn(r *Remote, tableName string, c *Column) string {
 	s := c.Name + " " + c.Type
 
-	if !c.Is_nullable {
+	if !c.Nullable {
 		s += " NOT NULL"
 	}
 

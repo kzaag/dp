@@ -1,6 +1,6 @@
 {
     "name": "bbar",
-    "type": "composite",
+    "type": "Composite",
     "columns": [
         {
             "name": "a",

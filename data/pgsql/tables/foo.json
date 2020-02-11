@@ -9,7 +9,8 @@
         },
         {
             "name": "val",
-            "type":"varchar(20)"
+            "type":"varchar",
+            "length": 20
         },
         {
             "name": "x",
@@ -17,11 +18,16 @@
         },
         {
             "name": "y",
-            "type": "varchar(20)"
+            "type": "varchar",
+            "length": 20 
         },
         {
             "name": "z",
             "type": "int"
+        },
+        {
+            "name": "typedcol",
+            "type": "bbar"
         }
     ],
     "primary": {

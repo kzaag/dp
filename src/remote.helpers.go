@@ -47,19 +47,20 @@ func MapColumns(remote *Remote, r *sql.Rows) ([]Column, error) {
 
 	buff := list.New()
 	for r.Next() {
-		var el RawColumn
+		var el Column
 		err := r.Scan(
 			&el.Name,
 			&el.Type,
-			&el.Max_length,
+			&el.Length,
 			&el.Precision,
 			&el.Scale,
-			&el.Is_nullable,
-			&el.Is_Identity)
+			&el.Nullable,
+			&el.Identity)
 		if err != nil {
 			return nil, err
 		}
-		buff.PushBack(el.ToColumn(remote))
+		el.SetFullType(remote)
+		buff.PushBack(el)
 	}
 
 	var ret = make([]Column, buff.Len())

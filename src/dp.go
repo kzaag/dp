@@ -22,6 +22,8 @@ const (
 	F_SQL  = iota
 )
 
+const EMPTY string = ""
+
 type DpUserConf struct {
 	profile string
 	format  uint
@@ -276,7 +278,7 @@ func DpExecuteMerge(c *Config, uc *DpUserConf, remote *Remote) error {
 
 	var err error
 
-	if err = DpInitLocalSchema(merge, c, uc.verb); err != nil {
+	if err = DpInitLocalSchema(merge, c, remote, uc.verb); err != nil {
 		return err
 	}
 
@@ -290,7 +292,9 @@ func DpExecuteMerge(c *Config, uc *DpUserConf, remote *Remote) error {
 	}
 
 	if !uc.exec {
-		fmt.Println(script)
+		fmt.Print("\n\033[0;44m-----BEGIN SCRIPT-----\033[0m\n\n")
+		fmt.Print(script)
+		fmt.Print("\n\033[0;44m-----END SCRIPT-----\033[0m\n\n")
 		return nil
 	}
 
@@ -339,7 +343,7 @@ func DpExecuteProfiles(c *Config, uc *DpUserConf, remote *Remote) error {
 	return err
 }
 
-func DpInitLocalSchema(m *Merger, conf *Config, verbose bool) error {
+func DpInitLocalSchema(m *Merger, conf *Config, r *Remote, verbose bool) error {
 
 	var start time.Time
 	if verbose {
@@ -361,12 +365,12 @@ func DpInitLocalSchema(m *Merger, conf *Config, verbose bool) error {
 	var t []Table
 	var tp []Type
 
-	if t, err = ReadTables(tpath); err != nil {
+	if t, err = ReadTables(tpath, r); err != nil {
 		return err
 	}
 
 	if len(tppath) != 0 {
-		if tp, err = ReadTypes(tppath); err != nil {
+		if tp, err = ReadTypes(tppath, r); err != nil {
 			return err
 		}
 	}
