@@ -56,11 +56,11 @@ func MssqlColumnType(column *Column) string {
 	default:
 		panic("no mssql mapper for type : " + strings.ToLower(column.Type))
 	}
-	return cs
+	return strings.ToUpper(cs)
 }
 
 func MssqlAlterColumn(r *Remote, tableName string, c *Column) string {
-	s := c.Name + " " + c.Type
+	s := c.Name + " " + c.FullType
 
 	if !c.Nullable {
 		s += " NOT NULL"

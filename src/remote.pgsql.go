@@ -67,6 +67,11 @@ func PgsqlColumnType(column *Column) string {
 		fallthrough
 	case "inet":
 		fallthrough
+	case "int4":
+		if column.Type == "int4" {
+			column.Type = "integer"
+		}
+		fallthrough
 	case "int":
 		if column.Type == "int" {
 			column.Type = "integer"
@@ -127,8 +132,6 @@ func PgsqlColumnType(column *Column) string {
 	case "uuid":
 		fallthrough
 	case "xml":
-		fallthrough
-	case "int4":
 		cs += strings.ToUpper(column.Type)
 	case "numeric":
 		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Precision)) + "," + strconv.Itoa(int(column.Scale)) + ")"
@@ -156,7 +159,7 @@ func PgsqlColumnType(column *Column) string {
 		//panic("no pgsql mapper for type : " + strings.ToLower(column.Type))
 		return column.Type
 	}
-	return cs
+	return strings.ToUpper(cs)
 }
 
 func PgsqlAlterColumn(r *Remote, tableName string, sc *Column, c *Column) string {

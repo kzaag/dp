@@ -544,7 +544,7 @@ func MergeRecreateDropBuff(rem *Remote, m *Merger, dc []MergeDropBuff) {
 				}
 			case DC_TYPE_C:
 				for z := 0; z < len(table.Columns); z++ {
-					c := &table.Columns[i]
+					c := &table.Columns[z]
 					if c.Name == dropBuff.Column.Name {
 						MergeAddOperation(m.create, RemoteAddColumn(rem, table.Name, c))
 					}
@@ -705,6 +705,7 @@ func MergeDropCompositeRefs(rem *Remote, m *Merger, lt *Type) []MergeDropBuff {
 			c := &t.Columns[j]
 
 			if c.FullType == lt.Name {
+
 				MergeAddOperation(m.drop, RemoteDropColumn(rem, t.Name, c))
 				ret = append(ret, MergeNewDropC(t.Name, c))
 

@@ -97,6 +97,7 @@ func DpStdoutWriteTables(remote *Remote, tables []Table, dir string, format uint
 
 func DpExecuteCmdsVerbose(db *sql.DB, cmds string) (int, int, error) {
 	cc := strings.Split(cmds, ";\n")
+	fmt.Println()
 	all := 0
 	for i := 0; i < len(cc); i++ {
 		if cc[i] == "" {
@@ -111,7 +112,7 @@ func DpExecuteCmdsVerbose(db *sql.DB, cmds string) (int, int, error) {
 			return i, len(cc), fmt.Errorf("")
 		}
 		elapsed := time.Since(start)
-		fmt.Println("\033[4;32mQuery completed in " + elapsed.String() + "\033[0m")
+		fmt.Println("\033[4;32mQuery completed in " + elapsed.String() + "\033[0m\n")
 	}
 	return all, all, nil
 }
@@ -271,32 +272,34 @@ func DpGenerateMergeScr(m *Merger, r *Remote, verbose bool) (string, error) {
 	return script, err
 }
 
-func DpExecuteMerge(c *Config, uc *DpUserConf, remote *Remote) error {
+func DpDisplayScript(script string, uc *DpUserConf) {
 
-	var merge *Merger
-	merge = MergeNew()
+	if script == EMPTY {
+
+		if uc.verb {
+
+			fmt.Print("\n\033[0;32mDatabase up to date - nothing to do\033[0m\n\n")
+		}
+
+	} else {
+
+		if uc.verb {
+			fmt.Print("\n\033[0;36m-----BEGIN SCRIPT-----\033[0m\n\n")
+		}
+
+		fmt.Print(script)
+
+		if uc.verb {
+			fmt.Print("\n\033[0;36m-----END SCRIPT-----\033[0m\n\n")
+		}
+
+	}
+
+}
+
+func DpExecuteScript(script string, uc *DpUserConf, remote *Remote) error {
 
 	var err error
-
-	if err = DpInitLocalSchema(merge, c, remote, uc.verb); err != nil {
-		return err
-	}
-
-	if err = DpInitRemoteSchema(remote, merge, uc.verb); err != nil {
-		return err
-	}
-
-	var script string
-	if script, err = DpGenerateMergeScr(merge, remote, uc.verb); err != nil {
-		return err
-	}
-
-	if !uc.exec {
-		fmt.Print("\n\033[0;44m-----BEGIN SCRIPT-----\033[0m\n\n")
-		fmt.Print(script)
-		fmt.Print("\n\033[0;44m-----END SCRIPT-----\033[0m\n\n")
-		return nil
-	}
 
 	if uc.verb {
 
@@ -318,6 +321,40 @@ func DpExecuteMerge(c *Config, uc *DpUserConf, remote *Remote) error {
 	}
 
 	return nil
+
+}
+
+func DpExecuteMerge(c *Config, uc *DpUserConf, remote *Remote) error {
+
+	var merge *Merger
+	merge = MergeNew()
+
+	var err error
+
+	if err = DpInitLocalSchema(merge, c, remote, uc.verb); err != nil {
+		return err
+	}
+
+	if err = DpInitRemoteSchema(remote, merge, uc.verb); err != nil {
+		return err
+	}
+
+	var script string
+	if script, err = DpGenerateMergeScr(merge, remote, uc.verb); err != nil {
+		return err
+	}
+
+	if uc.exec {
+
+		return DpExecuteScript(script, uc, remote)
+
+	} else {
+
+		DpDisplayScript(script, uc)
+		return nil
+
+	}
+
 }
 
 func DpExecuteProfiles(c *Config, uc *DpUserConf, remote *Remote) error {

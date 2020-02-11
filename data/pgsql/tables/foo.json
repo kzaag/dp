@@ -24,10 +24,6 @@
         {
             "name": "z",
             "type": "int"
-        },
-        {
-            "name": "typedcol",
-            "type": "bbar"
         }
     ],
     "primary": {
