@@ -3,11 +3,12 @@ database=_____
 password=______
 user=______
 
-tables=data/mssql/tables/
-#tables=data/pgsql/tables/
+before=data/pgsql/drop_routines/
 
-after=data/mssql/views/
-#after=data/pgsql/routines/
+tables=data/pgsql/tables/
 
-driver=sqlserver
-#driver=postgres
+types=data/pgsql/types/
+
+after=data/pgsql/create_routines/
+
+driver=postgres

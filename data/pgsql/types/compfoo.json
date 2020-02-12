@@ -1,0 +1,15 @@
+{
+    "name": "compfoo",
+    "type": "composite",
+    "columns": [
+        {
+            "name": "id",
+            "type": "int"
+        }, 
+        {
+            "name": "val",
+            "type": "varchar",
+            "length": 20
+        }
+    ]
+}

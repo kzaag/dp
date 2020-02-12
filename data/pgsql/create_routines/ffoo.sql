@@ -1,3 +1,3 @@
 CREATE FUNCTION ffoo() RETURNS SETOF compfoo AS $$
-    SELECT fooid, fooname FROM foo
+    SELECT id, val FROM foo
 $$ LANGUAGE SQL;

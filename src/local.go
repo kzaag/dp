@@ -187,10 +187,12 @@ func PrepTypes(types []Type, r *Remote) error {
 	}
 
 	for i := 0; i < len(types); i++ {
-		t := types[i]
+		t := &types[i]
 		if t.Name == "" {
 			return fmt.Errorf("type at index %d doesnt have name specified", i)
 		}
+
+		t.Type = strings.ToLower(t.Type)
 
 		switch t.Type {
 		case TT_Composite:

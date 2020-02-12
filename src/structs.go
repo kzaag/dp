@@ -99,8 +99,8 @@ type Table struct {
 }
 
 const (
-	TT_Enum      string = "Enum"
-	TT_Composite string = "Composite"
+	TT_Enum      string = "enum"
+	TT_Composite string = "composite"
 )
 
 type Type struct {

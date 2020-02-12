@@ -128,7 +128,7 @@ func DpExecuteCmds(db *sql.DB, cmds string) error {
 	return nil
 }
 
-func DpExecuteFile(db *sql.DB, spec *ScriptSpec, e bool) error {
+func DpExecuteFile(db *sql.DB, spec *ScriptSpec, uc *DpUserConf) error {
 
 	b, err := ioutil.ReadFile(spec.Path)
 	if err != nil {
@@ -141,17 +141,29 @@ func DpExecuteFile(db *sql.DB, spec *ScriptSpec, e bool) error {
 		script = strings.Replace(script, "@"+key+"@", val, -1)
 	}
 
-	if e {
+	var t time.Time
+
+	if uc.exec {
+		t = time.Now()
 		_, err = db.Exec(script)
 		if err != nil {
 			return err
 		}
 	}
 
+	if uc.verb {
+		fmt.Print(spec.Path)
+		if uc.exec {
+			el := time.Since(t)
+			fmt.Printf(" in %s", el.String())
+		}
+		fmt.Println()
+	}
+
 	return nil
 }
 
-func DpExecuteSpec(db *sql.DB, spec *ScriptSpec, e bool) error {
+func DpExecuteSpec(db *sql.DB, spec *ScriptSpec, uc *DpUserConf) error {
 	fi, err := os.Lstat(spec.Path)
 	if err != nil {
 		return err
@@ -165,12 +177,12 @@ func DpExecuteSpec(db *sql.DB, spec *ScriptSpec, e bool) error {
 		for i := 0; i < len(files); i++ {
 			newpath := path.Join(spec.Path, files[i].Name())
 			newspec := ScriptSpec{newpath, spec.Values}
-			if err = DpExecuteFile(db, &newspec, e); err != nil {
+			if err = DpExecuteFile(db, &newspec, uc); err != nil {
 				return err
 			}
 		}
 	} else {
-		return DpExecuteFile(db, spec, e)
+		return DpExecuteFile(db, spec, uc)
 	}
 
 	return nil
@@ -278,7 +290,7 @@ func DpDisplayScript(script string, uc *DpUserConf) {
 
 		if uc.verb {
 
-			fmt.Print("\n\033[0;32mDatabase up to date - nothing to do\033[0m\n\n")
+			fmt.Print("\n\033[0;32mNo merge needed\033[0m\n\n")
 		}
 
 	} else {
@@ -310,7 +322,7 @@ func DpExecuteScript(script string, uc *DpUserConf, remote *Remote) error {
 			return err
 		}
 		elapsed := time.Since(start)
-		fmt.Printf("Merge completed in %s. Executed %d operations.\n", elapsed.String(), c)
+		fmt.Printf("Merge completed in %s. Executed %d operations.\n\n", elapsed.String(), c)
 
 	} else {
 
@@ -325,6 +337,10 @@ func DpExecuteScript(script string, uc *DpUserConf, remote *Remote) error {
 }
 
 func DpExecuteMerge(c *Config, uc *DpUserConf, remote *Remote) error {
+
+	if uc.verb {
+		fmt.Print("\nBeginning merge...\n\n")
+	}
 
 	var merge *Merger
 	merge = MergeNew()
@@ -345,16 +361,16 @@ func DpExecuteMerge(c *Config, uc *DpUserConf, remote *Remote) error {
 	}
 
 	if uc.exec {
-
-		return DpExecuteScript(script, uc, remote)
-
+		err = DpExecuteScript(script, uc, remote)
 	} else {
-
 		DpDisplayScript(script, uc)
-		return nil
-
 	}
 
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func DpExecuteProfiles(c *Config, uc *DpUserConf, remote *Remote) error {
@@ -454,6 +470,30 @@ func DpInitRemoteSchema(r *Remote, m *Merger, verbose bool) error {
 
 }
 
+func DpExecPaths(paths []string, uconfig *DpUserConf, remote *Remote) error {
+
+	if paths == nil {
+		return nil
+	}
+
+	var spec *ScriptSpec
+	var err error
+
+	for i := 0; i < len(paths); i++ {
+
+		if spec, err = ConfScriptSpec(paths[i]); err != nil {
+			return err
+		}
+
+		if err := DpExecuteSpec(remote.conn, spec, uconfig); err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
 func DpProgram() error {
 
 	uconfig := DpGetUserConf()
@@ -472,32 +512,28 @@ func DpProgram() error {
 
 	defer remote.conn.Close()
 
-	if conf.Before != nil {
-		for i := 0; i < len(conf.Before); i++ {
-			beforeSpec, err := ConfScriptSpec(conf.Before[i])
-			if err != nil {
-				return err
-			}
-			if err := DpExecuteSpec(remote.conn, beforeSpec, uconfig.exec); err != nil {
-				return err
-			}
-		}
+	if uconfig.verb && conf.Before != nil && len(conf.Before) != 0 {
+		fmt.Print("\033[0;36m\nBefore:\033[0m\n")
+	}
+
+	if err = DpExecPaths(conf.Before, uconfig, remote); err != nil {
+		return err
 	}
 
 	if err = DpExecuteProfiles(conf, uconfig, remote); err != nil {
 		return err
 	}
 
-	if conf.After != nil {
-		for i := 0; i < len(conf.After); i++ {
-			s, err := ConfScriptSpec(conf.After[i])
-			if err != nil {
-				return err
-			}
-			if err := DpExecuteSpec(remote.conn, s, uconfig.exec); err != nil {
-				return err
-			}
-		}
+	if uconfig.verb && conf.After != nil && len(conf.After) != 0 {
+		fmt.Print("\033[0;36mAfter:\033[0m\n")
+	}
+
+	if err = DpExecPaths(conf.After, uconfig, remote); err != nil {
+		return err
+	}
+
+	if uconfig.verb && conf.After != nil && len(conf.After) != 0 {
+		fmt.Println()
 	}
 
 	return nil
