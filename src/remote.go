@@ -812,7 +812,7 @@ func RemoteGetTableDef(remote *Remote, tableName string) (*Table, error) {
 	return &tbl, nil
 }
 
-func TExists(t Type, localTypes []Type) bool {
+func TExists(t *Type, localTypes []Type) bool {
 	for i := 0; i < len(localTypes); i++ {
 		if localTypes[i].Name == t.Name {
 			return true
@@ -837,28 +837,26 @@ func RemoteGetTypes(r *Remote, localTypes []Type) ([]Type, error) {
 		return nil, err
 	}
 
-	cb := list.New()
+	elen := len(enums)
+	clen := len(composite)
 
-	for x := enums.Front(); x != nil; x = x.Next() {
-		v := x.Value.(Type)
+	cb := make([]Type, elen+clen)
+
+	for i := 0; i < elen; i++ {
+		v := &enums[i]
 		if TExists(v, localTypes) {
-			cb.PushBack(v)
+			cb[i] = *v
 		}
 	}
 
-	for i := 0; i < len(composite); i++ {
-		v := composite[i]
+	for i := 0; i < clen; i++ {
+		v := &composite[i]
 		if TExists(v, localTypes) {
-			cb.PushBack(v)
+			cb[elen+i] = *v
 		}
 	}
 
-	ret := make([]Type, cb.Len())
-	for i, x := 0, cb.Front(); x != nil; i, x = i+1, x.Next() {
-		ret[i] = x.Value.(Type)
-	}
-
-	return ret, nil
+	return cb, nil
 }
 
 func RemoteDropType(r *Remote, t *Type) string {

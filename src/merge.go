@@ -692,7 +692,7 @@ func MergePrimary(rem *Remote, mrg *Merger, localTable *Table, remTable *Table) 
 	}
 }
 
-func MergeDropCompositeRefs(rem *Remote, m *Merger, lt *Type) []MergeDropBuff {
+func MergeDropTypeRefs(rem *Remote, m *Merger, lt *Type) []MergeDropBuff {
 
 	var ret []MergeDropBuff
 
@@ -718,10 +718,6 @@ func MergeDropCompositeRefs(rem *Remote, m *Merger, lt *Type) []MergeDropBuff {
 	return ret
 }
 
-func MergeRecreateCompositeRefs(rem *Remote, m *Merger, db []MergeDropBuff) {
-
-}
-
 func MergeComposite(rem *Remote, m *Merger, lt *Type, rt *Type) {
 
 	var eq bool = true
@@ -734,12 +730,9 @@ func MergeComposite(rem *Remote, m *Merger, lt *Type, rt *Type) {
 
 		for i := 0; i < len(lt.Columns); i++ {
 
-			for j := 0; j < len(rt.Columns); j++ {
-
-				if !MergeCompareColumn(rem, &lt.Columns[i], &rt.Columns[j]) {
-					eq = false
-				}
-
+			if !MergeCompareColumn(rem, &lt.Columns[i], &rt.Columns[i]) {
+				eq = false
+				break
 			}
 
 		}
@@ -750,7 +743,41 @@ func MergeComposite(rem *Remote, m *Merger, lt *Type, rt *Type) {
 		return
 	}
 
-	db := MergeDropCompositeRefs(rem, m, rt)
+	db := MergeDropTypeRefs(rem, m, rt)
+
+	MergeAddOperation(m.drop, RemoteDropType(rem, rt))
+
+	MergeAddOperation(m.create, RemoteTypeDef(rem, lt))
+
+	MergeRecreateDropBuff(rem, m, db)
+}
+
+func MergeEnum(rem *Remote, m *Merger, lt *Type, rt *Type) {
+
+	var eq bool = true
+
+	if len(lt.Values) != len(rt.Values) {
+
+		eq = false
+
+	} else {
+
+		for i := 0; i < len(lt.Values); i++ {
+
+			if lt.Values[i] != rt.Values[i] {
+				eq = false
+				break
+			}
+
+		}
+
+	}
+
+	if eq {
+		return
+	}
+
+	db := MergeDropTypeRefs(rem, m, rt)
 
 	MergeAddOperation(m.drop, RemoteDropType(rem, rt))
 
@@ -770,7 +797,7 @@ func MergeType(rem *Remote, m *Merger, lt *Type, rt *Type) {
 
 		case TT_Enum:
 
-			// ...
+			MergeEnum(rem, m, lt, rt)
 
 		}
 

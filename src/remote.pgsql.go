@@ -191,7 +191,7 @@ func PgsqlAlterColumn(r *Remote, tableName string, sc *Column, c *Column) string
 	return ret
 }
 
-func PgsqlGetEnum(r *Remote) (*list.List, error) {
+func PgsqlGetEnum(r *Remote) ([]Type, error) {
 
 	q := `select typname from pg_type where typcategory = 'E'`
 	rows, err := r.conn.Query(q)
@@ -199,14 +199,15 @@ func PgsqlGetEnum(r *Remote) (*list.List, error) {
 		return nil, err
 	}
 
-	tps := list.New()
+	var tps []Type
+
 	for rows.Next() {
 		var enumname string
 		err := rows.Scan(&enumname)
 		if err != nil {
 			return nil, err
 		}
-		tps.PushBack(Type{enumname, TT_Enum, nil, nil})
+		tps = append(tps, Type{enumname, TT_Enum, nil, nil})
 	}
 
 	query := `select e.enumlabel
@@ -215,8 +216,9 @@ func PgsqlGetEnum(r *Remote) (*list.List, error) {
 			 where typname = $1
 			 order by enumsortorder;`
 
-	for x := tps.Front(); x != nil; x = x.Next() {
-		tp := x.Value.(Type)
+	for i := 0; i < len(tps); i++ {
+
+		tp := &tps[i]
 		rows, err := r.conn.Query(query, tp.Name)
 		if err != nil {
 			return nil, err
@@ -237,6 +239,7 @@ func PgsqlGetEnum(r *Remote) (*list.List, error) {
 		for i, x := 0, cols.Front(); x != nil; i, x = i+1, x.Next() {
 			tp.Values[i] = x.Value.(string)
 		}
+
 	}
 
 	return tps, nil
