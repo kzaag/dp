@@ -108,3 +108,12 @@ func MapIxColumns(rows *sql.Rows) ([]IndexColumn, error) {
 
 	return ret, nil
 }
+
+func TExists(t *Type, localTypes []Type) bool {
+	for i := 0; i < len(localTypes); i++ {
+		if localTypes[i].Name == t.Name {
+			return true
+		}
+	}
+	return false
+}

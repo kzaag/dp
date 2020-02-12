@@ -1,0 +1,36 @@
+{
+    "name":"foos",
+    "columns":[
+        {
+            "name": "id",
+            "type": "int",
+            "is_nullable": true,
+            "is_identity": true
+        },
+        {
+            "name": "name",
+            "type": "char",
+            "length": 100
+        },
+        {
+            "name": "foo_id",
+            "type": "int"
+        }
+    ],
+    "foreign": [
+        {
+            "name": "foos_foo_fk",
+            "columns": [
+                {
+                    "name": "foo_id"
+                }
+            ],
+            "ref_columns": [
+                {
+                    "name": "id"
+                }
+            ],
+            "ref_table": "foo"
+        }
+    ]
+}

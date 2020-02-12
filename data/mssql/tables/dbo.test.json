@@ -10,7 +10,7 @@
 		{
 			"name": "x",
 			"type": "varchar",
-			"max_length": 50
+			"length": 50
 		},
 		{
 			"name": "y",

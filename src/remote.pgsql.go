@@ -17,10 +17,15 @@ func PgsqlColumnType(column *Column) string {
 		fallthrough
 	case "char":
 		if column.Type == "char" {
-			column.Type = "character"
+			column.Type = "bpchar"
 		}
 		fallthrough
 	case "character":
+		if column.Type == "character" {
+			column.Type = "bpchar"
+		}
+		fallthrough
+	case "bpchar":
 		fallthrough
 	case "varchar":
 		if column.Type == "varchar" {
@@ -168,7 +173,7 @@ func PgsqlAlterColumn(r *Remote, tableName string, sc *Column, c *Column) string
 
 	if sc.FullType != c.FullType {
 
-		s := "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name + " SET DATA TYPE " + c.Type
+		s := "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name + " SET DATA TYPE " + c.FullType
 
 		// here theoretically could be introduced USING ( ... ) to the alter
 		// but it seems too complex to properly introduce trimming for any pg type.
@@ -189,6 +194,40 @@ func PgsqlAlterColumn(r *Remote, tableName string, sc *Column, c *Column) string
 	}
 
 	return ret
+}
+
+func PgsqlGetTypes(r *Remote, localTypes []Type) ([]Type, error) {
+
+	enums, err := PgsqlGetEnum(r)
+	if err != nil {
+		return nil, err
+	}
+
+	composite, err := PgsqlGetComposite(r)
+	if err != nil {
+		return nil, err
+	}
+
+	elen := len(enums)
+	clen := len(composite)
+
+	cb := make([]Type, elen+clen)
+
+	for i := 0; i < elen; i++ {
+		v := &enums[i]
+		if TExists(v, localTypes) {
+			cb[i] = *v
+		}
+	}
+
+	for i := 0; i < clen; i++ {
+		v := &composite[i]
+		if TExists(v, localTypes) {
+			cb[elen+i] = *v
+		}
+	}
+
+	return cb, nil
 }
 
 func PgsqlGetEnum(r *Remote) ([]Type, error) {

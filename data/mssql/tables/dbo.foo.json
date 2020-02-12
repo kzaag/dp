@@ -9,6 +9,10 @@
         {
             "name": "test_id",
             "type": "int"
+        },
+        {
+            "name": "fooc",
+            "fullType": "varchar(20)"
         }
     ],
     "primary": {

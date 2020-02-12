@@ -23,17 +23,17 @@ func MssqlColumnType(column *Column) string {
 	switch strings.ToLower(column.Type) {
 	case "nvarchar":
 		if column.Length == -1 {
-			cs += strings.ToUpper(column.Type) + "(MAX)"
+			cs += column.Type + "(max)"
 		} else {
-			cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(column.Length/2) + ")"
+			cs += column.Type + "(" + strconv.Itoa(column.Length/2) + ")"
 		}
 	case "varbinary":
 		fallthrough
 	case "varchar":
 		if column.Length == -1 {
-			cs += strings.ToUpper(column.Type) + "(MAX)"
+			cs += column.Type + "(max)"
 		} else {
-			cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(column.Length) + ")"
+			cs += column.Type + "(" + strconv.Itoa(column.Length) + ")"
 		}
 	case "int":
 		fallthrough
@@ -46,13 +46,13 @@ func MssqlColumnType(column *Column) string {
 	case "bit":
 		fallthrough
 	case "uniqueidentifier":
-		cs += strings.ToUpper(column.Type)
+		cs += column.Type
 	case "binary":
-		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Length)) + ")"
+		cs += column.Type + "(" + strconv.Itoa(int(column.Length)) + ")"
 	case "datetime2":
-		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Scale)) + ")"
+		cs += column.Type + "(" + strconv.Itoa(int(column.Scale)) + ")"
 	case "decimal":
-		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Precision)) + "," + strconv.Itoa(int(column.Scale)) + ")"
+		cs += column.Type + "(" + strconv.Itoa(int(column.Precision)) + "," + strconv.Itoa(int(column.Scale)) + ")"
 	default:
 		panic("no mssql mapper for type : " + strings.ToLower(column.Type))
 	}

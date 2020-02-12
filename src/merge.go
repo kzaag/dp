@@ -166,12 +166,15 @@ func MergeCompareCColumn(c1 []ConstraintColumn, c2 []ConstraintColumn) bool {
 }
 
 func MergeCompareColumn(rem *Remote, c1 *Column, c2 *Column) bool {
-	dcStr := RemoteAddColumn(rem, "", c1)
-	userColStr := RemoteAddColumn(rem, "", c2)
+	sc1 := RemoteAddColumn(rem, "", c1)
+	sc2 := RemoteAddColumn(rem, "", c2)
 
-	if dcStr == userColStr {
+	if sc1 == sc2 {
 		return true
 	}
+
+	//fmt.Printf("%s != %s\n", sc1, sc2)
+
 	return false
 }
 

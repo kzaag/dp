@@ -1,0 +1,10 @@
+server=____
+database=____
+password=____
+user=____
+
+tables=data/mssql/tables/
+
+after=data/mssql/views/
+
+driver=sqlserver

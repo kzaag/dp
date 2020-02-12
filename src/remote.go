@@ -9,7 +9,19 @@ import (
 type RemoteType uint
 
 const (
+
+	/*
+
+		mssql server since version 2016
+		table types are not yet supported
+
+	*/
 	Mssql RemoteType = iota
+
+	/*
+		supports postgresql version 12.1
+		other versions are not tested.
+	*/
 	Pgsql RemoteType = iota
 )
 
@@ -812,51 +824,14 @@ func RemoteGetTableDef(remote *Remote, tableName string) (*Table, error) {
 	return &tbl, nil
 }
 
-func TExists(t *Type, localTypes []Type) bool {
-	for i := 0; i < len(localTypes); i++ {
-		if localTypes[i].Name == t.Name {
-			return true
-		}
-	}
-	return false
-}
-
 func RemoteGetTypes(r *Remote, localTypes []Type) ([]Type, error) {
+
 	if r.tp != Pgsql {
 		// not implemented to mssql yet
 		return nil, nil
 	}
 
-	enums, err := PgsqlGetEnum(r)
-	if err != nil {
-		return nil, err
-	}
-
-	composite, err := PgsqlGetComposite(r)
-	if err != nil {
-		return nil, err
-	}
-
-	elen := len(enums)
-	clen := len(composite)
-
-	cb := make([]Type, elen+clen)
-
-	for i := 0; i < elen; i++ {
-		v := &enums[i]
-		if TExists(v, localTypes) {
-			cb[i] = *v
-		}
-	}
-
-	for i := 0; i < clen; i++ {
-		v := &composite[i]
-		if TExists(v, localTypes) {
-			cb[elen+i] = *v
-		}
-	}
-
-	return cb, nil
+	return PgsqlGetTypes(r, localTypes)
 }
 
 func RemoteDropType(r *Remote, t *Type) string {

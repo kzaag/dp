@@ -315,6 +315,10 @@ func DpExecuteScript(script string, uc *DpUserConf, remote *Remote) error {
 
 	if uc.verb {
 
+		if uc.verb {
+			fmt.Print("\n\033[0;36m-----BEGIN SCRIPT-----\033[0m\n\n")
+		}
+
 		start := time.Now()
 		c, _, err := DpExecuteCmdsVerbose(remote.conn, script)
 		if err != nil {
@@ -322,7 +326,12 @@ func DpExecuteScript(script string, uc *DpUserConf, remote *Remote) error {
 			return err
 		}
 		elapsed := time.Since(start)
-		fmt.Printf("Merge completed in %s. Executed %d operations.\n\n", elapsed.String(), c)
+
+		if uc.verb {
+			fmt.Print("\n\033[0;36m-----END SCRIPT-----\033[0m\n\n")
+		}
+
+		fmt.Printf("\033[4;32mMerge completed in %s. Executed %d operations.\033[0m\n\n", elapsed.String(), c)
 
 	} else {
 

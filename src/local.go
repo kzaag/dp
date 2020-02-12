@@ -84,6 +84,8 @@ func PrepColumn(c []Column, r *Remote) error {
 
 		if col.FullType == EMPTY {
 			col.SetFullType(r)
+		} else {
+			col.FullType = strings.ToUpper(col.FullType)
 		}
 	}
 	return nil
