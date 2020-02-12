@@ -45,12 +45,22 @@ func ConfScriptSpec(spec string) (*ScriptSpec, error) {
 	return &ret, nil
 }
 
-func (c Config) Get(key string) (string, error) {
+func (c *Config) Get(key string) (string, error) {
 	ret := c.Values[key]
 	if ret == "" {
 		return "", fmt.Errorf("key '" + key + "' not found in config")
 	}
 	return ret, nil
+}
+
+// this method will either return value or panic
+// meant to be called after Get was already called on specific key thus not expecting failure
+func (c *Config) MustGet(key string) string {
+	if v, err := c.Get(key); err != nil {
+		panic(err)
+	} else {
+		return v
+	}
 }
 
 func (c Config) SqlCs() (string, error) {
@@ -149,16 +159,16 @@ func ConfParseKeyVal(conf string) ([]string, []string, error) {
 			continue
 		}
 
+		if strings.HasPrefix(lines[i], "#") {
+			continue
+		}
+
 		split := strings.SplitN(lines[i], "=", 2)
 		if len(split) != 2 || split[0] == "" {
 			return nil, nil, fmt.Errorf("error: malformed config entry - " + lines[i])
 		}
 
 		ConfCleanKey(&split[0])
-
-		if strings.HasPrefix(split[0], "#") {
-			continue
-		}
 
 		keys[i] = split[0]
 		vals[i] = split[1]

@@ -1,0 +1,10 @@
+{
+    "name": "ffoo",
+    "type": "Enum",
+    "values": [
+        "a",
+        "b",
+        "c",
+        "d"
+    ]
+}

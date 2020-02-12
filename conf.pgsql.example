@@ -1,0 +1,14 @@
+server=____
+database=_____
+password=______
+user=______
+
+before=data/pgsql/drop_routines/
+
+tables=data/pgsql/tables/
+
+types=data/pgsql/types/
+
+after=data/pgsql/create_routines/
+
+driver=postgres

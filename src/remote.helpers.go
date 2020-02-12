@@ -43,7 +43,7 @@ func MapCheck(r *sql.Rows) ([]Check, error) {
 	return cs, nil
 }
 
-func MapColumns(r *sql.Rows) ([]Column, error) {
+func MapColumns(remote *Remote, r *sql.Rows) ([]Column, error) {
 
 	buff := list.New()
 	for r.Next() {
@@ -51,14 +51,15 @@ func MapColumns(r *sql.Rows) ([]Column, error) {
 		err := r.Scan(
 			&el.Name,
 			&el.Type,
-			&el.Max_length,
+			&el.Length,
 			&el.Precision,
 			&el.Scale,
-			&el.Is_nullable,
-			&el.Is_Identity)
+			&el.Nullable,
+			&el.Identity)
 		if err != nil {
 			return nil, err
 		}
+		el.SetFullType(remote)
 		buff.PushBack(el)
 	}
 
@@ -106,4 +107,13 @@ func MapIxColumns(rows *sql.Rows) ([]IndexColumn, error) {
 	}
 
 	return ret, nil
+}
+
+func TExists(t *Type, localTypes []Type) bool {
+	for i := 0; i < len(localTypes); i++ {
+		if localTypes[i].Name == t.Name {
+			return true
+		}
+	}
+	return false
 }
