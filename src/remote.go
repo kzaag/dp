@@ -86,7 +86,12 @@ func RemoteAddIx(r *Remote, tableName string, ix *Index) string {
 		unique = "UNIQUE "
 	}
 
-	t := "NONCLUSTERED "
+	var t string
+
+	if r.tp == Mssql {
+		t = "NONCLUSTERED "
+	}
+
 	if ix.Type != "" {
 		t = strings.ToUpper(ix.Type) + " "
 	}

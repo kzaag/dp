@@ -38,9 +38,12 @@ func PgsqlColumnType(column *Column) string {
 		} else {
 			cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(column.Length) + ")"
 		}
-	case "int8":
-		fallthrough
 	case "bigint":
+		if column.Type == "bigint" {
+			column.Type = "int8"
+		}
+		fallthrough
+	case "int8":
 		fallthrough
 	case "serial8":
 		fallthrough

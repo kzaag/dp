@@ -267,7 +267,7 @@ func ReadTables(dir string, r *Remote) ([]Table, error) {
 			content, err := ioutil.ReadFile(name)
 			defs[i] = content
 			if len(content) == 0 {
-				return nil, fmt.Errorf("empty file content")
+				return nil, fmt.Errorf("%s - empty file content", name)
 			}
 			if err != nil {
 				return nil, err
@@ -284,7 +284,8 @@ func ReadTables(dir string, r *Remote) ([]Table, error) {
 		if defs[i] != nil {
 			err = json.Unmarshal([]byte(defs[i]), &ret[ci])
 			if err != nil {
-				return nil, err
+				name := path.Join(dir, files[i].Name())
+				return nil, fmt.Errorf("couldnt unmarshall %s %s", name, err.Error())
 			}
 			ci++
 		}
@@ -315,7 +316,7 @@ func ReadTypes(dir string, r *Remote) ([]Type, error) {
 			content, err := ioutil.ReadFile(name)
 			defs[i] = content
 			if len(content) == 0 {
-				return nil, fmt.Errorf("empty file content")
+				return nil, fmt.Errorf("%s - empty file content", name)
 			}
 			if err != nil {
 				return nil, err
@@ -332,7 +333,8 @@ func ReadTypes(dir string, r *Remote) ([]Type, error) {
 		if defs[i] != nil {
 			err = json.Unmarshal([]byte(defs[i]), &ret[ci])
 			if err != nil {
-				return nil, err
+				name := path.Join(dir, files[i].Name())
+				return nil, fmt.Errorf("couldnt unmarshall %s %s", name, err.Error())
 			}
 			ci++
 		}
