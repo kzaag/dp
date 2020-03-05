@@ -2,3 +2,4 @@ bin/**
 *.conf
 data/priv/**
 !data/priv/.gitkeep
+go.sum
