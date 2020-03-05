@@ -397,8 +397,7 @@ func DpExecuteProfiles(c *Config, uc *DpUserConf, remote *Remote) error {
 
 	default:
 
-		flag.Usage()
-		return fmt.Errorf("invalid profile specified: " + uc.profile)
+		return nil
 
 	}
 
