@@ -385,8 +385,13 @@ func DpExecuteMerge(c *Config, uc *DpUserConf, remote *Remote) error {
 func DpExecuteProfiles(c *Config, uc *DpUserConf, remote *Remote) error {
 
 	var err error
+	var profile string
 
-	switch uc.profile {
+	if profile, err = c.Get("profile"); err != nil {
+		profile = uc.profile
+	}
+
+	switch profile {
 	case "merge":
 
 		err = DpExecuteMerge(c, uc, remote)
