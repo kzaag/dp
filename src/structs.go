@@ -76,11 +76,11 @@ type Column struct {
 }
 
 func (c *Column) IsIde0() bool {
-	return (c.Meta & CM_Ide0) == 0
+	return (c.Meta & CM_Ide0) == CM_Ide0
 }
 
 func (c *Column) IsNull0() bool {
-	return (c.Meta & CM_Null0) == 0
+	return (c.Meta & CM_Null0) == CM_Null0
 }
 
 // will set FullType field based on rest of fields

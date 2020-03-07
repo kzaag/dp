@@ -169,7 +169,7 @@ func MergeCompareColumn(rem *Remote, c1 *Column, c2 *Column) bool {
 	sc1 := RemoteAddColumn(rem, "", c1)
 	sc2 := RemoteAddColumn(rem, "", c2)
 
-	if sc1 == sc2 {
+	if sc1 == sc2 && c1.Identity == c2.Identity && c1.Nullable == c2.Nullable {
 		return true
 	}
 
@@ -408,7 +408,7 @@ func MergeFK(rem *Remote, mrg *Merger, localTable *Table, remTable *Table) {
 	userFKs := localTable.Foreign
 	matchedIxs := list.New()
 
-	if userFKs != nil && len(userFKs) > 0 {
+	if len(userFKs) > 0 {
 		for i := 0; i < len(userFKs); i++ {
 			userFK := &userFKs[i]
 			var index int = -1
