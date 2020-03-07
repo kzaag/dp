@@ -2,6 +2,7 @@ package main
 
 import (
 	"container/list"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -170,7 +171,20 @@ func PgsqlColumnType(column *Column) string {
 	return strings.ToUpper(cs)
 }
 
-func PgsqlAlterColumn(r *Remote, tableName string, sc *Column, c *Column) string {
+func PgsqlAlterTypeColumn(r *Remote, typename string, sc *Column, c *Column) string {
+
+	ret := ""
+
+	if sc.FullType != c.FullType {
+		ret += fmt.Sprintf("ALTER TYPE %s ALTER ATTRIBUTE %s SET DATA TYPE %s", typename, c.Name, c.FullType)
+	}
+
+	ret += ";\n"
+
+	return ret
+}
+
+func PgsqlAlterTableColumn(r *Remote, tableName string, sc *Column, c *Column) string {
 
 	ret := ""
 
@@ -325,7 +339,7 @@ func PgsqlGetComposite(r *Remote) ([]Type, error) {
 			var colname string
 			var coltype string
 			err := rows.Scan(&colname, &coltype)
-			c := Column{colname, "", coltype, -1, -1, -1, false, false, CM_Null0 | CM_Ide0}
+			c := Column{colname, "", coltype, -1, -1, -1, false, false, CM_CompType}
 			if err != nil {
 				return nil, err
 			}

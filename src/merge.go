@@ -73,9 +73,9 @@ func MergeNewDropUq(tablename string, u *Unique) MergeDropBuff {
 	return MergeDropBuff{tablename, DC_TYPE_UQ, nil, nil, u, nil, nil}
 }
 
-func MergeNewDropCh(tablename string, c *Check) MergeDropBuff {
-	return MergeDropBuff{tablename, DC_TYPE_CH, nil, nil, nil, c, nil}
-}
+// func MergeNewDropCh(tablename string, c *Check) MergeDropBuff {
+// 	return MergeDropBuff{tablename, DC_TYPE_CH, nil, nil, nil, c, nil}
+// }
 
 func MergeNewDropC(tablename string, c *Column) MergeDropBuff {
 	return MergeDropBuff{tablename, DC_TYPE_C, nil, nil, nil, nil, c}
@@ -671,7 +671,7 @@ func MergePrimary(rem *Remote, mrg *Merger, localTable *Table, remTable *Table) 
 		return
 	}
 
-	var droppedCs []MergeDropBuff = nil
+	var droppedCs []MergeDropBuff
 
 	if userPK == nil && (remTable != nil && remTable.Primary != nil) {
 		droppedCs = MergeDropPkRefs(rem, tname, mrg.remTables, mrg.drop)
@@ -721,6 +721,22 @@ func MergeDropTypeRefs(rem *Remote, m *Merger, lt *Type) []MergeDropBuff {
 	return ret
 }
 
+todo finish merging columns
+func MergeCompositeColumns(r *Remote, m *Merger, lt *Type, rt *Type) {
+
+	// if typed table exists
+	// MergeColumns(rem, m, ...)
+	// for typed table
+	// else
+	//MergeAddOperation(m.drop, RemoteDropType(rem, rt))
+	//MergeAddOperation(m.create, RemoteTypeDef(rem, lt))
+
+	// ???
+	// db := MergeDropTypeRefs(rem, m, rt)
+	// MergeRecreateDropBuff(rem, m, db)
+}
+
+todo finish merging columns
 func MergeComposite(rem *Remote, m *Merger, lt *Type, rt *Type) {
 
 	var eq bool = true
@@ -746,13 +762,8 @@ func MergeComposite(rem *Remote, m *Merger, lt *Type, rt *Type) {
 		return
 	}
 
-	db := MergeDropTypeRefs(rem, m, rt)
+	MergeCompositeColumns(rem, m, lt, rt)
 
-	MergeAddOperation(m.drop, RemoteDropType(rem, rt))
-
-	MergeAddOperation(m.create, RemoteTypeDef(rem, lt))
-
-	MergeRecreateDropBuff(rem, m, db)
 }
 
 func MergeEnum(rem *Remote, m *Merger, lt *Type, rt *Type) {

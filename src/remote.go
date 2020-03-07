@@ -51,34 +51,34 @@ func RemoteColumnType(r *Remote, c *Column) string {
 	}
 }
 
-func RemoteGetAllTableName(r *Remote) ([]string, error) {
+// func RemoteGetAllTableName(r *Remote) ([]string, error) {
 
-	var query string
-	switch r.tp {
-	case Mssql:
-		query = `select s.name + '.' + t.name 
-				from sys.tables t 
-				inner join sys.schemas s on s.schema_id = t.schema_id`
-	case Pgsql:
-		query = `select table_name 
-				from information_schema.tables 
-				where table_type = 'BASE TABLE' and table_schema = 'public'`
-	default:
-		panic("remote type not implemented")
-	}
+// 	var query string
+// 	switch r.tp {
+// 	case Mssql:
+// 		query = `select s.name + '.' + t.name
+// 				from sys.tables t
+// 				inner join sys.schemas s on s.schema_id = t.schema_id`
+// 	case Pgsql:
+// 		query = `select table_name
+// 				from information_schema.tables
+// 				where table_type = 'BASE TABLE' and table_schema = 'public'`
+// 	default:
+// 		panic("remote type not implemented")
+// 	}
 
-	rows, err := r.conn.Query(query)
-	if err != nil {
-		return nil, err
-	}
+// 	rows, err := r.conn.Query(query)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	ret, err := MapTableNames(rows)
-	if err != nil {
-		return nil, err
-	}
+// 	ret, err := MapTableNames(rows)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return ret, nil
-}
+// 	return ret, nil
+// }
 
 func RemoteAddIx(r *Remote, tableName string, ix *Index) string {
 	unique := ""
@@ -190,46 +190,66 @@ func RemoteAddColumn(r *Remote, tableName string, c *Column) string {
 
 	s := RemoteColumn(r, c)
 
+	if (c.Meta & CM_CompType) == CM_CompType {
+		return "ALTER TYPE add attribute " + s + ";\n"
+	}
+
 	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
 }
 
-func RemoteAlterColumn(r *Remote, tableName string, old *Column, new *Column) string {
+func RemoteAlterColumn(r *Remote, parentName string, old *Column, new *Column) string {
 	switch r.tp {
 	case Mssql:
-		return MssqlAlterColumn(r, tableName, new)
+		return MssqlAlterTableColumn(r, parentName, new)
 	case Pgsql:
-		return PgsqlAlterColumn(r, tableName, old, new)
+		if (new.Meta & CM_CompType) == CM_CompType {
+			return PgsqlAlterTypeColumn(r, parentName, old, new)
+		}
+		return PgsqlAlterTableColumn(r, parentName, old, new)
 	default:
 		panic("remote type not implemented")
 	}
 }
 
-func RemoteDropColumn(r *Remote, tableName string, c *Column) string {
+func RemoteDropTableColumn(r *Remote, tableName string, c *Column) string {
 	return "ALTER TABLE " + tableName + " DROP COLUMN " + c.Name + ";\n"
 }
 
-func RemoteGetAllTables(remote *Remote) ([]Table, error) {
-
-	names, err := RemoteGetAllTableName(remote)
-	if err != nil {
-		return nil, err
-	}
-
-	tbls := make([]Table, len(names))
-
-	for i := 0; i < len(names); i++ {
-		tbl, err := RemoteGetTableDef(remote, names[i])
-		if err != nil {
-			return nil, err
-		}
-		if tbl == nil {
-			continue
-		}
-		tbls[i] = *tbl
-	}
-
-	return tbls, nil
+func RemoteDropTypeColumn(r *Remote, typename string, c *Column) string {
+	return "ALTER TYPE " + typename + " DROP ATTRIBUTE " + c.Name + ";\n"
 }
+
+func RemoteDropColumn(r *Remote, typename string, c *Column) string {
+	switch c.Meta {
+	case CM_CompType:
+		return RemoteDropTypeColumn(r, typename, c)
+	default:
+		return RemoteDropTableColumn(r, typename, c)
+	}
+}
+
+// func RemoteGetAllTables(remote *Remote) ([]Table, error) {
+
+// 	names, err := RemoteGetAllTableName(remote)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	tbls := make([]Table, len(names))
+
+// 	for i := 0; i < len(names); i++ {
+// 		tbl, err := RemoteGetTableDef(remote, names[i])
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		if tbl == nil {
+// 			continue
+// 		}
+// 		tbls[i] = *tbl
+// 	}
+
+// 	return tbls, nil
+// }
 
 func RemoteGetMatchTables(remote *Remote, userTables []Table) ([]Table, error) {
 
@@ -249,19 +269,28 @@ func RemoteGetMatchTables(remote *Remote, userTables []Table) ([]Table, error) {
 	return tbls, nil
 }
 
-func RemoteColumn(remote *Remote, column *Column) string {
+func RemoteTypeColumn(remote *Remote, column *Column) string {
 	var cs string
+	cs += column.Name + " " + column.FullType
+	return cs
+}
 
+func RemoteColumn(remote *Remote, column *Column) string {
+
+	var cs string
 	cs += column.Name + " " + column.FullType
 
-	if column.IsNull0() {
-	} else if !column.Nullable {
+	if remote.tp == Pgsql && (column.Meta&CM_CompType) == CM_CompType {
+		return cs
+	}
+
+	if !column.Nullable {
 		cs += " NOT NULL"
 	} else {
 		cs += " NULL"
 	}
 
-	if column.Identity && !column.IsIde0() {
+	if column.Identity {
 		switch remote.tp {
 		case Mssql:
 			cs += " IDENTITY"
@@ -307,7 +336,7 @@ func RemoteTypeDef(remote *Remote, t *Type) string {
 			if i > 0 {
 				ret += ","
 			}
-			ret += RemoteColumn(remote, &t.Columns[i])
+			ret += RemoteTypeColumn(remote, &t.Columns[i])
 		}
 
 		ret += ");\n"
@@ -319,14 +348,16 @@ func RemoteTypeDef(remote *Remote, t *Type) string {
 func RemoteTableDef(remote *Remote, t *Table) string {
 	ret := ""
 
+	if t.Type != "" && remote.tp == Pgsql {
+		return "CREATE TABLE " + t.Name + " OF " + t.Type + ";\n"
+	}
+
 	ret += "CREATE TABLE " + t.Name + " ( \n"
 
-	if t.Columns != nil {
-		for i := 0; i < len(t.Columns); i++ {
-			column := &t.Columns[i]
-			columnStr := RemoteColumn(remote, column)
-			ret += "\t" + columnStr + ",\n"
-		}
+	for i := 0; i < len(t.Columns); i++ {
+		column := &t.Columns[i]
+		columnStr := RemoteColumn(remote, column)
+		ret += "\t" + columnStr + ",\n"
 	}
 
 	ret = strings.TrimSuffix(ret, ",\n")
@@ -628,7 +659,9 @@ func RemoteGetAllPK(r *Remote, tableName string) (*PrimaryKey, error) {
 	}
 
 	var ret PrimaryKey
-	rows.Scan(&ret.Name)
+	if err = rows.Scan(&ret.Name); err != nil {
+		return nil, err
+	}
 
 	switch r.tp {
 	case Mssql:
@@ -645,6 +678,10 @@ func RemoteGetAllPK(r *Remote, tableName string) (*PrimaryKey, error) {
 			where constraint_name = $1`, ret.Name)
 	default:
 		panic("remote type not implemented")
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	cols, err := MapCColumns(rows)
@@ -669,7 +706,7 @@ func RemoteGetAllIx(r *Remote, tableName string) ([]Index, error) {
 			return nil, err
 		}
 
-		rows, err = r.conn.Query(
+		if rows, err = r.conn.Query(
 			`select 
 			i.name,
 			i.is_unique,
@@ -682,7 +719,10 @@ func RemoteGetAllIx(r *Remote, tableName string) ([]Index, error) {
 			t.name = @n and 
 			i.type <> 0 and
 			is_primary_key = 0 and 
-			is_unique_constraint = 0`, sql.Named("s", schema), sql.Named("n", name))
+			is_unique_constraint = 0`, sql.Named("s", schema), sql.Named("n", name)); err != nil {
+			return nil, err
+		}
+
 	case Pgsql:
 		rows, err = r.conn.Query(
 			`select
@@ -707,6 +747,7 @@ func RemoteGetAllIx(r *Remote, tableName string) ([]Index, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	tmp := list.New()
 
 	for rows.Next() {
@@ -788,7 +829,7 @@ func RemoteGetTableDef(remote *Remote, tableName string) (*Table, error) {
 		return nil, err
 	}
 
-	if cols == nil || len(cols) == 0 {
+	if len(cols) == 0 {
 		return nil, nil
 	}
 

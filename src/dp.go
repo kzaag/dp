@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -32,68 +31,68 @@ type DpUserConf struct {
 	verb    bool
 }
 
-func DpExt(f uint) string {
-	switch f {
-	case F_JSON:
-		fallthrough
-	default:
-		return ".json"
-	case F_SQL:
-		return ".sql"
-	}
-}
+// func DpExt(f uint) string {
+// 	switch f {
+// 	case F_JSON:
+// 		fallthrough
+// 	default:
+// 		return ".json"
+// 	case F_SQL:
+// 		return ".sql"
+// 	}
+// }
 
-func DpTableString(remote *Remote, t *Table, f uint) ([]byte, error) {
-	switch f {
-	case F_JSON:
-		fallthrough
-	default:
-		return json.MarshalIndent(t, "", "\t")
-	case F_SQL:
-		b := RemoteTableDef(remote, t)
-		return []byte(b), nil
-	}
-}
+// func DpTableString(remote *Remote, t *Table, f uint) ([]byte, error) {
+// 	switch f {
+// 	case F_JSON:
+// 		fallthrough
+// 	default:
+// 		return json.MarshalIndent(t, "", "\t")
+// 	case F_SQL:
+// 		b := RemoteTableDef(remote, t)
+// 		return []byte(b), nil
+// 	}
+// }
 
-func DpStdoutWriteTables(remote *Remote, tables []Table, dir string, format uint) error {
-	if dir != "" {
-		fs, err := os.Stat(dir)
-		if err != nil && os.IsNotExist(err) {
-			return err
-		}
-		if !fs.IsDir() {
-			return fmt.Errorf(dir + " is not directory")
-		}
-		for i := 0; i < len(tables); i++ {
-			if tables[i].Name == "" {
-				return fmt.Errorf("empty table name")
-			}
-			ext := DpExt(format)
-			f, err := os.Create(path.Join(dir, tables[i].Name+ext))
-			if err != nil {
-				return err
-			}
-			def, err := DpTableString(remote, &tables[i], format)
-			if err != nil {
-				return err
-			}
-			_, err = f.Write(def)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		for i := 0; i < len(tables); i++ {
-			var def []byte
-			def, err := DpTableString(remote, &tables[i], format)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(def))
-		}
-	}
-	return nil
-}
+// func DpStdoutWriteTables(remote *Remote, tables []Table, dir string, format uint) error {
+// 	if dir != "" {
+// 		fs, err := os.Stat(dir)
+// 		if err != nil && os.IsNotExist(err) {
+// 			return err
+// 		}
+// 		if !fs.IsDir() {
+// 			return fmt.Errorf(dir + " is not directory")
+// 		}
+// 		for i := 0; i < len(tables); i++ {
+// 			if tables[i].Name == "" {
+// 				return fmt.Errorf("empty table name")
+// 			}
+// 			ext := DpExt(format)
+// 			f, err := os.Create(path.Join(dir, tables[i].Name+ext))
+// 			if err != nil {
+// 				return err
+// 			}
+// 			def, err := DpTableString(remote, &tables[i], format)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			_, err = f.Write(def)
+// 			if err != nil {
+// 				return err
+// 			}
+// 		}
+// 	} else {
+// 		for i := 0; i < len(tables); i++ {
+// 			var def []byte
+// 			def, err := DpTableString(remote, &tables[i], format)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			fmt.Println(string(def))
+// 		}
+// 	}
+// 	return nil
+// }
 
 func DpExecuteCmdsVerbose(db *sql.DB, cmds string) (int, int, error) {
 	cc := strings.Split(cmds, ";\n")
@@ -163,6 +162,39 @@ func DpExecuteFile(db *sql.DB, spec *ScriptSpec, uc *DpUserConf) error {
 	return nil
 }
 
+func DpExecuteDir(db *sql.DB, spec *ScriptSpec, uc *DpUserConf) error {
+	files, err := ioutil.ReadDir(spec.Path)
+	if err != nil {
+		return err
+	}
+	for i := 0; i < len(files); i++ {
+		newpath := path.Join(spec.Path, files[i].Name())
+		fi, err := os.Lstat(newpath)
+		if err != nil {
+			return err
+		}
+		newspec := ScriptSpec{newpath, spec.Values}
+		if fi.IsDir() {
+
+			if err = DpExecuteDir(db, &newspec, uc); err != nil {
+				return err
+			}
+
+		} else {
+
+			if !strings.HasSuffix(files[i].Name(), ".sql") {
+				continue
+			}
+
+			if err = DpExecuteFile(db, &newspec, uc); err != nil {
+				return err
+			}
+
+		}
+	}
+	return nil
+}
+
 func DpExecuteSpec(db *sql.DB, spec *ScriptSpec, uc *DpUserConf) error {
 	fi, err := os.Lstat(spec.Path)
 	if err != nil {
@@ -170,22 +202,10 @@ func DpExecuteSpec(db *sql.DB, spec *ScriptSpec, uc *DpUserConf) error {
 	}
 
 	if fi.IsDir() {
-		files, err := ioutil.ReadDir(spec.Path)
-		if err != nil {
-			return err
-		}
-		for i := 0; i < len(files); i++ {
-			newpath := path.Join(spec.Path, files[i].Name())
-			newspec := ScriptSpec{newpath, spec.Values}
-			if err = DpExecuteFile(db, &newspec, uc); err != nil {
-				return err
-			}
-		}
+		return DpExecuteDir(db, spec, uc)
 	} else {
 		return DpExecuteFile(db, spec, uc)
 	}
-
-	return nil
 }
 
 func DpGetUserConf() *DpUserConf {
@@ -351,8 +371,7 @@ func DpExecuteMerge(c *Config, uc *DpUserConf, remote *Remote) error {
 		fmt.Print("\nBeginning merge...\n\n")
 	}
 
-	var merge *Merger
-	merge = MergeNew()
+	var merge *Merger = MergeNew()
 
 	var err error
 
