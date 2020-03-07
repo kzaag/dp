@@ -191,7 +191,7 @@ func RemoteAddColumn(r *Remote, tableName string, c *Column) string {
 	s := RemoteColumn(r, c)
 
 	if (c.Meta & CM_CompType) == CM_CompType {
-		return "ALTER TYPE add attribute " + s + ";\n"
+		return "ALTER TYPE " + tableName + " ADD ATTRIBUTE " + s + " CASCADE;\n"
 	}
 
 	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
@@ -216,7 +216,7 @@ func RemoteDropTableColumn(r *Remote, tableName string, c *Column) string {
 }
 
 func RemoteDropTypeColumn(r *Remote, typename string, c *Column) string {
-	return "ALTER TYPE " + typename + " DROP ATTRIBUTE " + c.Name + ";\n"
+	return "ALTER TYPE " + typename + " DROP ATTRIBUTE " + c.Name + " CASCADE;\n"
 }
 
 func RemoteDropColumn(r *Remote, typename string, c *Column) string {
@@ -824,6 +824,7 @@ func RemoteGetAllIx(r *Remote, tableName string) ([]Index, error) {
 }
 
 func RemoteGetTableDef(remote *Remote, tableName string) (*Table, error) {
+
 	cols, err := RemoteGetAllColumn(remote, tableName)
 	if err != nil {
 		return nil, err
@@ -867,6 +868,12 @@ func RemoteGetTableDef(remote *Remote, tableName string) (*Table, error) {
 	tbl.Primary = pk
 	tbl.Indexes = ix
 
+	if remote.tp == Pgsql {
+		if err = PgsqlGetTypedTableInfo(remote, &tbl); err != nil {
+			return nil, err
+		}
+	}
+
 	return &tbl, nil
 }
 
@@ -888,4 +895,8 @@ func RemoteDropType(r *Remote, t *Type) string {
 
 	return "DROP TYPE " + t.Name + ";\n"
 
+}
+
+func RemoteDropTable(r *Remote, tableName string) string {
+	return "DROP TABLE " + tableName + ";\n"
 }

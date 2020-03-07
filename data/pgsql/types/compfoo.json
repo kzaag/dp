@@ -5,7 +5,7 @@
         {
             "name": "id",
             "type": "int"
-        }, 
+        },
         {
             "name": "val",
             "type": "varchar",
