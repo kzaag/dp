@@ -4,8 +4,8 @@
         {
             "name": "id",
             "type": "int",
-            "is_nullable": false,
-            "is_identity": true
+            "nullable": false,
+            "identity": true
         },
         {
             "name": "val",

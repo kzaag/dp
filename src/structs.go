@@ -45,10 +45,10 @@ type ForeignKey struct {
 type ColumnMeta int
 
 const (
-	// not null / null is not supported for given column
-	CM_Null0 = iota
-	// identity values are disabled
-	CM_Ide0 = iota
+	// standard column
+	//CM_None ColumnMeta = 0
+	// composite type column
+	CM_CompType ColumnMeta = 1
 )
 
 type Column struct {
@@ -71,16 +71,9 @@ type Column struct {
 	Nullable  bool
 	Identity  bool
 
-	// extra metadata which specifies extra behaviour about column ( example: like composite type column which cannot be not null)
+	// extra metadata which specifies extra behaviour about column in specific dbms
+	//( example: like composite type column which cannot be not null, or different add/drop/alter syntax applies)
 	Meta ColumnMeta
-}
-
-func (c *Column) IsIde0() bool {
-	return (c.Meta & CM_Ide0) == CM_Ide0
-}
-
-func (c *Column) IsNull0() bool {
-	return (c.Meta & CM_Null0) == CM_Null0
 }
 
 // will set FullType field based on rest of fields
@@ -90,6 +83,7 @@ func (rc *Column) SetFullType(r *Remote) {
 
 type Table struct {
 	Name    string
+	Type    string
 	Columns []Column
 	Foreign []ForeignKey
 	Unique  []Unique
@@ -110,25 +104,25 @@ type Type struct {
 	Columns []Column
 }
 
-type DbConstraint struct {
-	Name string
-	Type string
-}
+// type DbConstraint struct {
+// 	Name string
+// 	Type string
+// }
 
-type DbConf struct {
-	Server   string
-	Database string
-	User     string
-	Password string
-	Other    map[string]string
-	Pre      []string
-	Post     []string
-}
+// type DbConf struct {
+// 	Server   string
+// 	Database string
+// 	User     string
+// 	Password string
+// 	Other    map[string]string
+// 	Pre      []string
+// 	Post     []string
+// }
 
-func (conf *DbConf) ToCS() string {
-	return "server=" + conf.Server +
-		";user id=" + conf.User +
-		";password=" + conf.Password +
-		";database=" + conf.Database +
-		";"
-}
+// func (conf *DbConf) ToCS() string {
+// 	return "server=" + conf.Server +
+// 		";user id=" + conf.User +
+// 		";password=" + conf.Password +
+// 		";database=" + conf.Database +
+// 		";"
+// }

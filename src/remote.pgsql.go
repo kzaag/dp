@@ -2,6 +2,8 @@ package main
 
 import (
 	"container/list"
+	"database/sql"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -170,7 +172,20 @@ func PgsqlColumnType(column *Column) string {
 	return strings.ToUpper(cs)
 }
 
-func PgsqlAlterColumn(r *Remote, tableName string, sc *Column, c *Column) string {
+func PgsqlAlterTypeColumn(r *Remote, typename string, sc *Column, c *Column) string {
+
+	ret := ""
+
+	if sc.FullType != c.FullType {
+		ret += fmt.Sprintf("ALTER TYPE %s ALTER ATTRIBUTE %s SET DATA TYPE %s CASCADE", typename, c.Name, c.FullType)
+	}
+
+	ret += ";\n"
+
+	return ret
+}
+
+func PgsqlAlterTableColumn(r *Remote, tableName string, sc *Column, c *Column) string {
 
 	ret := ""
 
@@ -325,7 +340,7 @@ func PgsqlGetComposite(r *Remote) ([]Type, error) {
 			var colname string
 			var coltype string
 			err := rows.Scan(&colname, &coltype)
-			c := Column{colname, "", coltype, -1, -1, -1, false, false, CM_Null0 | CM_Ide0}
+			c := Column{colname, "", coltype, -1, -1, -1, false, false, CM_CompType}
 			if err != nil {
 				return nil, err
 			}
@@ -340,4 +355,31 @@ func PgsqlGetComposite(r *Remote) ([]Type, error) {
 	}
 
 	return tps, nil
+}
+
+func PgsqlGetTypedTableInfo(r *Remote, t *Table) error {
+
+	var err error
+	var rows *sql.Rows
+
+	q :=
+		`select 
+		user_defined_type_name 
+	from information_schema.tables where table_name = $1`
+
+	if rows, err = r.conn.Query(q, t.Name); err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var ptname *string
+		if err = rows.Scan(&ptname); err != nil {
+			return err
+		}
+		if ptname != nil {
+			t.Type = *ptname
+		}
+	}
+
+	return nil
 }

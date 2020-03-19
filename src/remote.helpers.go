@@ -5,24 +5,24 @@ import (
 	"database/sql"
 )
 
-func MapTableNames(r *sql.Rows) ([]string, error) {
-	buff := list.New()
-	for r.Next() {
-		var t string
-		err := r.Scan(&t)
-		if err != nil {
-			return nil, err
-		}
-		buff.PushBack(t)
-	}
+// func MapTableNames(r *sql.Rows) ([]string, error) {
+// 	buff := list.New()
+// 	for r.Next() {
+// 		var t string
+// 		err := r.Scan(&t)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		buff.PushBack(t)
+// 	}
 
-	var ret = make([]string, buff.Len())
-	for i, x := 0, buff.Front(); i < buff.Len(); i, x = i+1, x.Next() {
-		ret[i] = x.Value.(string)
-	}
+// 	var ret = make([]string, buff.Len())
+// 	for i, x := 0, buff.Front(); i < buff.Len(); i, x = i+1, x.Next() {
+// 		ret[i] = x.Value.(string)
+// 	}
 
-	return ret, nil
-}
+// 	return ret, nil
+// }
 
 func MapCheck(r *sql.Rows) ([]Check, error) {
 	tmp := list.New()

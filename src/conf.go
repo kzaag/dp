@@ -1,7 +1,6 @@
 package main
 
 import (
-	"container/list"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -122,14 +121,6 @@ func (c Config) PgCs() (string, error) {
 
 func ConfNew() *Config {
 	return &Config{nil, nil, nil}
-}
-
-func ConfListToArr(list list.List) []string {
-	ret := make([]string, list.Len())
-	for i, x := 0, list.Front(); x != nil; i, x = i+1, x.Next() {
-		ret[i] = x.Value.(string)
-	}
-	return ret
 }
 
 func ConfGetKeyCount(keys []string, key string) int {

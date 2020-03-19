@@ -59,7 +59,7 @@ func MssqlColumnType(column *Column) string {
 	return strings.ToUpper(cs)
 }
 
-func MssqlAlterColumn(r *Remote, tableName string, c *Column) string {
+func MssqlAlterTableColumn(r *Remote, tableName string, c *Column) string {
 	s := c.Name + " " + c.FullType
 
 	if !c.Nullable {

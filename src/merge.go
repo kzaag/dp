@@ -73,9 +73,9 @@ func MergeNewDropUq(tablename string, u *Unique) MergeDropBuff {
 	return MergeDropBuff{tablename, DC_TYPE_UQ, nil, nil, u, nil, nil}
 }
 
-func MergeNewDropCh(tablename string, c *Check) MergeDropBuff {
-	return MergeDropBuff{tablename, DC_TYPE_CH, nil, nil, nil, c, nil}
-}
+// func MergeNewDropCh(tablename string, c *Check) MergeDropBuff {
+// 	return MergeDropBuff{tablename, DC_TYPE_CH, nil, nil, nil, c, nil}
+// }
 
 func MergeNewDropC(tablename string, c *Column) MergeDropBuff {
 	return MergeDropBuff{tablename, DC_TYPE_C, nil, nil, nil, nil, c}
@@ -169,13 +169,7 @@ func MergeCompareColumn(rem *Remote, c1 *Column, c2 *Column) bool {
 	sc1 := RemoteAddColumn(rem, "", c1)
 	sc2 := RemoteAddColumn(rem, "", c2)
 
-	if sc1 == sc2 && c1.Identity == c2.Identity && c1.Nullable == c2.Nullable {
-		return true
-	}
-
-	//fmt.Printf("%s != %s\n", sc1, sc2)
-
-	return false
+	return sc1 == sc2
 }
 
 func MergeColumns(rem *Remote, mrg *Merger, localTable *Table, remTable *Table) {
@@ -184,47 +178,49 @@ func MergeColumns(rem *Remote, mrg *Merger, localTable *Table, remTable *Table) 
 		return
 	}
 
-	matchedIxs := list.New()
-	if localTable.Columns != nil {
-		for i := 0; i < len(localTable.Columns); i++ {
+	if localTable.Type != "" || localTable.Type != remTable.Type {
+		return
+	}
 
-			uc := &localTable.Columns[i]
-			var index int = -1
-			if remTable.Columns != nil {
-				for j := 0; j < len(remTable.Columns); j++ {
-					if remTable.Columns[j].Name == uc.Name {
-						index = j
-					}
+	matchedIxs := list.New()
+	for i := 0; i < len(localTable.Columns); i++ {
+
+		uc := &localTable.Columns[i]
+		var index int = -1
+		if remTable.Columns != nil {
+			for j := 0; j < len(remTable.Columns); j++ {
+				if remTable.Columns[j].Name == uc.Name {
+					index = j
 				}
 			}
+		}
 
-			if index < 0 {
+		if index < 0 {
 
+			MergeAddOperation(mrg.create, RemoteAddColumn(rem, localTable.Name, uc))
+
+		} else {
+			dc := &remTable.Columns[index]
+			matchedIxs.PushBack(index)
+
+			if MergeCompareColumn(rem, uc, dc) {
+				continue
+			}
+
+			drefs := MergeDropColRefs(rem, dc, remTable, mrg.remTables, mrg.drop)
+
+			if dc.Identity != uc.Identity {
+
+				MergeAddOperation(mrg.drop, RemoteDropColumn(rem, localTable.Name, dc))
 				MergeAddOperation(mrg.create, RemoteAddColumn(rem, localTable.Name, uc))
 
 			} else {
-				dc := &remTable.Columns[index]
-				matchedIxs.PushBack(index)
 
-				if MergeCompareColumn(rem, uc, dc) {
-					continue
-				}
+				MergeAddOperation(mrg.create, RemoteAlterColumn(rem, localTable.Name, dc, uc))
 
-				drefs := MergeDropColRefs(rem, dc, remTable, mrg.remTables, mrg.drop)
-
-				if dc.Identity != uc.Identity {
-
-					MergeAddOperation(mrg.drop, RemoteDropColumn(rem, localTable.Name, dc))
-					MergeAddOperation(mrg.create, RemoteAddColumn(rem, localTable.Name, uc))
-
-				} else {
-
-					MergeAddOperation(mrg.create, RemoteAlterColumn(rem, localTable.Name, dc, uc))
-
-				}
-
-				MergeRecreateColRefs(rem, mrg.localTables, mrg.create, drefs)
 			}
+
+			MergeRecreateColRefs(rem, mrg.localTables, mrg.create, drefs)
 		}
 	}
 
@@ -671,7 +667,7 @@ func MergePrimary(rem *Remote, mrg *Merger, localTable *Table, remTable *Table) 
 		return
 	}
 
-	var droppedCs []MergeDropBuff = nil
+	var droppedCs []MergeDropBuff
 
 	if userPK == nil && (remTable != nil && remTable.Primary != nil) {
 		droppedCs = MergeDropPkRefs(rem, tname, mrg.remTables, mrg.drop)
@@ -721,38 +717,77 @@ func MergeDropTypeRefs(rem *Remote, m *Merger, lt *Type) []MergeDropBuff {
 	return ret
 }
 
-func MergeComposite(rem *Remote, m *Merger, lt *Type, rt *Type) {
+func MergeDropCompositeTypeColumnRefs(r *Remote, m *Merger, lt *Type, c *Column) []MergeDropBuff {
 
-	var eq bool = true
+	var ret []MergeDropBuff
 
-	if len(lt.Columns) != len(rt.Columns) {
+	for i := 0; i < len(m.remTables); i++ {
 
-		eq = false
+		var t *Table = &m.remTables[i]
 
-	} else {
+		if t.Type != lt.Name {
+			continue
+		}
+		ret = append(ret, MergeDropColRefs(r, c, t, m.remTables, m.drop)...)
 
-		for i := 0; i < len(lt.Columns); i++ {
+	}
 
-			if !MergeCompareColumn(rem, &lt.Columns[i], &rt.Columns[i]) {
-				eq = false
-				break
+	return ret
+}
+
+func MergeComposite(r *Remote, m *Merger, lt *Type, rt *Type) {
+
+	matchedIxs := list.New()
+	for i := 0; i < len(lt.Columns); i++ {
+
+		lc := &lt.Columns[i]
+		var index int = -1
+		if rt.Columns != nil {
+			for j := 0; j < len(rt.Columns); j++ {
+				if rt.Columns[j].Name == lc.Name {
+					index = j
+				}
 			}
-
 		}
 
+		if index < 0 {
+			MergeAddOperation(m.create, RemoteAddColumn(r, lt.Name, lc))
+		} else {
+			rc := &rt.Columns[index]
+			matchedIxs.PushBack(index)
+
+			if MergeCompareColumn(r, lc, rc) {
+				continue
+			}
+
+			MergeAddOperation(m.create, RemoteAlterColumn(r, lt.Name, rc, lc))
+
+		}
 	}
 
-	if eq {
-		return
+	for i := 0; i < len(rt.Columns); i++ {
+		exists := false
+		for v := matchedIxs.Front(); v != nil; v = v.Next() {
+			if v.Value.(int) == i {
+				exists = true
+				break
+			}
+		}
+		if exists {
+			continue
+		}
+
+		dc := &rt.Columns[i]
+
+		db := MergeDropCompositeTypeColumnRefs(r, m, rt, dc)
+		//drefs := MergeDropColRefs(rem, dc, remTable, mrg.remTables, mrg.drop)
+
+		MergeAddOperation(m.drop, RemoteDropColumn(r, lt.Name, dc))
+
+		//MergeRecreateColRefs(rem, mrg.localTables, mrg.create, drefs)
+		MergeRecreateDropBuff(r, m, db)
 	}
 
-	db := MergeDropTypeRefs(rem, m, rt)
-
-	MergeAddOperation(m.drop, RemoteDropType(rem, rt))
-
-	MergeAddOperation(m.create, RemoteTypeDef(rem, lt))
-
-	MergeRecreateDropBuff(rem, m, db)
 }
 
 func MergeEnum(rem *Remote, m *Merger, lt *Type, rt *Type) {
@@ -841,9 +876,27 @@ func MergeTables(mrg *Merger, rem *Remote) {
 
 	for i := 0; i < len(mrg.localTables); i++ {
 
-		if MergeFindTable(mrg.localTables[i].Name, mrg.remTables) == nil {
+		if t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables); t == nil {
 
 			*mrg.create += RemoteTableDef(rem, &mrg.localTables[i])
+
+		} else {
+
+			if rem.tp == Pgsql && t.Type != mrg.localTables[i].Type {
+
+				MergeAddOperation(mrg.drop, RemoteDropTable(rem, t.Name))
+				*mrg.create += RemoteTableDef(rem, &mrg.localTables[i])
+
+				// modifying table buffers is not really the way of this algorithm
+				// so this will need to be removed evetually
+				t.Check = nil
+				t.Foreign = nil
+				t.Indexes = nil
+				t.Primary = nil
+				t.Unique = nil
+
+			}
+
 		}
 	}
 

@@ -5,11 +5,15 @@
         {
             "name": "id",
             "type": "int"
-        }, 
+        },
         {
             "name": "val",
             "type": "varchar",
             "length": 20
+        },
+        {
+            "name": "val2",
+            "type": "int"
         }
     ]
 }

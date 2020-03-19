@@ -70,8 +70,8 @@ func ElevateErrorColumn(tname string, err error) error {
 }
 
 func PrepColumn(c []Column, r *Remote) error {
-	if c == nil || len(c) == 0 {
-		return fmt.Errorf("no columns specified")
+	if len(c) == 0 {
+		return nil
 	}
 	for i := 0; i < len(c); i++ {
 		col := &c[i]
@@ -92,7 +92,7 @@ func PrepColumn(c []Column, r *Remote) error {
 }
 
 func PrepStrArray(c []string) error {
-	if c == nil || len(c) == 0 {
+	if len(c) == 0 {
 		return fmt.Errorf("no values specified")
 	}
 	for i := 0; i < len(c); i++ {
@@ -141,9 +141,9 @@ func PrepUnique(us []Unique) error {
 	return nil
 }
 
-func ElevateErrorPk(name string, err error) error {
-	return fmt.Errorf("in primary key %s: %s", name, err.Error())
-}
+// func ElevateErrorPk(name string, err error) error {
+// 	return fmt.Errorf("in primary key %s: %s", name, err.Error())
+// }
 
 func PrepPk(pk *PrimaryKey) error {
 	if pk == nil {
@@ -201,12 +201,15 @@ func PrepTypes(types []Type, r *Remote) error {
 			if err := PrepColumn(t.Columns, r); err != nil {
 				return ElevateErrorType(t.Name, err)
 			}
+			for i := 0; i < len(t.Columns); i++ {
+				t.Columns[i].Meta = CM_CompType
+			}
 		case TT_Enum:
 			if err := PrepStrArray(t.Values); err != nil {
 				return ElevateErrorType(t.Name, err)
 			}
 		default:
-			return ElevateErrorType(t.Name, fmt.Errorf("uknown type of type: %s", t.Type))
+			return ElevateErrorType(t.Name, fmt.Errorf("unknown type: \"%s\"", t.Type))
 		}
 	}
 
