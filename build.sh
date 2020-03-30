@@ -8,8 +8,8 @@ cd bin
 rm -f *.conf
 rm -f data
 
-ln -s ../data data
-ln ../*.conf .
+ln -s ../data data &>/dev/null || :
+ln ../*.conf . &>/dev/null || :
 
 go build -o dp ../src/*.go
 go build -gcflags "-N -l" -o ddp ../src/*.go

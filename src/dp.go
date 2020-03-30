@@ -146,7 +146,7 @@ func DpExecuteFile(db *sql.DB, spec *ScriptSpec, uc *DpUserConf) error {
 		t = time.Now()
 		_, err = db.Exec(script)
 		if err != nil {
-			return err
+			return fmt.Errorf("in %s: %s", spec.Path, err.Error())
 		}
 	}
 
