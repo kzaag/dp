@@ -84,11 +84,16 @@ func (c Config) SqlCs() (string, error) {
 		return "", fmt.Errorf("field: 'user' was not present in config")
 	}
 
-	return "server=" + server +
+	x := "server=" + server +
 		";user id=" + user +
 		";password=" + password +
 		";database=" + db +
-		";", nil
+		";sslmode=disable;"
+
+	fmt.Println(x)
+
+	return x, nil
+
 }
 
 func (c Config) PgCs() (string, error) {
@@ -116,7 +121,7 @@ func (c Config) PgCs() (string, error) {
 	return "host=" + server +
 		" user=" + user +
 		" password=" + password +
-		" dbname=" + db, nil
+		" dbname=" + db + " sslmode=disable" , nil
 }
 
 func ConfNew() *Config {
