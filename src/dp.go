@@ -544,6 +544,17 @@ func DpProgram() error {
 
 	defer remote.conn.Close()
 
+	if uconfig.verb && conf.Before != nil && len(conf.Check) != 0 {
+		fmt.Print("\033[0;36m\nCheck:\033[0m\n")
+	}
+
+	/* check is always executed */
+	uconfig.exec = true
+	if err = DpExecPaths(conf.Check, uconfig, remote); err != nil {
+		return err
+	}
+	uconfig.exec = false
+
 	if uconfig.verb && conf.Before != nil && len(conf.Before) != 0 {
 		fmt.Print("\033[0;36m\nBefore:\033[0m\n")
 	}

@@ -1,0 +1,28 @@
+{
+    "driver": "postgres",
+    "auth": [
+        {
+            "name": "default auth",
+            "cs": "..."
+        },
+        {
+            "name": "some_other_auth",
+            "server": "localhost",
+            "database": "postgres",
+            "password": "postgres",
+            "user": "postgres"
+        }
+    ],
+    "exec": [
+        {
+            "type": "check",
+            "path": "data/pg/db.sql",
+            "auth": "default_auth"
+        },
+        {
+            "type": "types",
+            "path": "...",
+            "auth": "some_other_auth"
+        }
+    ]
+}

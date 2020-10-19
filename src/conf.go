@@ -6,12 +6,13 @@ import (
 	"strings"
 )
 
-var ConfReserved = []string{"before", "after"}
+var ConfReserved = []string{"before", "after", "check"}
 
 type Config struct {
 	Before []string
 	After  []string
 	Values map[string]string
+	Check  []string
 }
 
 type ScriptSpec struct {
@@ -52,7 +53,7 @@ func (c *Config) Get(key string) (string, error) {
 	return ret, nil
 }
 
-// this method will either return value or panic
+// this function will either return value or panic
 // meant to be called after Get was already called on specific key thus not expecting failure
 func (c *Config) MustGet(key string) string {
 	if v, err := c.Get(key); err != nil {
@@ -121,11 +122,11 @@ func (c Config) PgCs() (string, error) {
 	return "host=" + server +
 		" user=" + user +
 		" password=" + password +
-		" dbname=" + db + " sslmode=disable" , nil
+		" dbname=" + db + " sslmode=disable", nil
 }
 
 func ConfNew() *Config {
-	return &Config{nil, nil, nil}
+	return &Config{nil, nil, nil, nil}
 }
 
 func ConfGetKeyCount(keys []string, key string) int {
@@ -245,6 +246,7 @@ func ConfInit(c *Config, path string) error {
 
 	c.Before = ConfGetArray("before", keys, values)
 	c.After = ConfGetArray("after", keys, values)
+	c.Check = ConfGetArray("check", keys, values)
 	c.Values = ConfGetCustom(keys, values)
 
 	return nil
