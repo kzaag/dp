@@ -2,34 +2,21 @@ package main
 
 import (
 	"database/sql"
-	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path"
-	"strconv"
-	"strings"
 	"time"
+
+	"github.com/kzaag/database-project/src/config"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/lib/pq"
 )
 
 // formats
-const (
-	F_JSON = iota
-	F_SQL  = iota
-)
-
-const EMPTY string = ""
-
-type DpUserConf struct {
-	profile string
-	format  uint
-	config  string
-	exec    bool
-	verb    bool
-}
+// const (
+// 	F_JSON = iota
+// 	F_SQL  = iota
+// )
 
 // func DpExt(f uint) string {
 // 	switch f {
@@ -94,134 +81,6 @@ type DpUserConf struct {
 // 	return nil
 // }
 
-func DpExecuteCmdsVerbose(db *sql.DB, cmds string) (int, int, error) {
-	cc := strings.Split(cmds, ";\n")
-	fmt.Println()
-	all := 0
-	for i := 0; i < len(cc); i++ {
-		if cc[i] == "" {
-			continue
-		}
-		all++
-		fmt.Println(cc[i])
-		start := time.Now()
-		_, err := db.Exec(cc[i])
-		if err != nil {
-			fmt.Println("\033[4;31mError " + err.Error() + "\033[0m")
-			return i, len(cc), fmt.Errorf("")
-		}
-		elapsed := time.Since(start)
-		fmt.Println("\033[4;32mQuery completed in " + elapsed.String() + "\033[0m\n")
-	}
-	return all, all, nil
-}
-
-func DpExecuteCmds(db *sql.DB, cmds string) error {
-	cc := strings.Split(cmds, ";\n")
-	for i := 0; i < len(cc); i++ {
-		_, err := db.Exec(cc[i])
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func DpExecuteFile(db *sql.DB, spec *ScriptSpec, uc *DpUserConf) error {
-
-	b, err := ioutil.ReadFile(spec.Path)
-	if err != nil {
-		return err
-	}
-
-	script := string(b)
-
-	for key, val := range spec.Values {
-		script = strings.Replace(script, "@"+key+"@", val, -1)
-	}
-
-	var t time.Time
-
-	if uc.exec {
-		t = time.Now()
-		_, err = db.Exec(script)
-		if err != nil {
-			return fmt.Errorf("in %s: %s", spec.Path, err.Error())
-		}
-	}
-
-	if uc.verb {
-		fmt.Print(spec.Path)
-		if uc.exec {
-			el := time.Since(t)
-			fmt.Printf(" in %s", el.String())
-		}
-		fmt.Println()
-	}
-
-	return nil
-}
-
-func DpExecuteDir(db *sql.DB, spec *ScriptSpec, uc *DpUserConf) error {
-	files, err := ioutil.ReadDir(spec.Path)
-	if err != nil {
-		return err
-	}
-	for i := 0; i < len(files); i++ {
-		newpath := path.Join(spec.Path, files[i].Name())
-		fi, err := os.Lstat(newpath)
-		if err != nil {
-			return err
-		}
-		newspec := ScriptSpec{newpath, spec.Values}
-		if fi.IsDir() {
-
-			if err = DpExecuteDir(db, &newspec, uc); err != nil {
-				return err
-			}
-
-		} else {
-
-			if !strings.HasSuffix(files[i].Name(), ".sql") {
-				continue
-			}
-
-			if err = DpExecuteFile(db, &newspec, uc); err != nil {
-				return err
-			}
-
-		}
-	}
-	return nil
-}
-
-func DpExecuteSpec(db *sql.DB, spec *ScriptSpec, uc *DpUserConf) error {
-	fi, err := os.Lstat(spec.Path)
-	if err != nil {
-		return err
-	}
-
-	if fi.IsDir() {
-		return DpExecuteDir(db, spec, uc)
-	} else {
-		return DpExecuteFile(db, spec, uc)
-	}
-}
-
-func DpGetUserConf() *DpUserConf {
-	var c DpUserConf
-
-	flag.StringVar(&c.profile, "p", "merge", "profile. to be executed: merge, import")
-	flag.UintVar(&c.format, "f", F_SQL, "available import formats: json="+strconv.Itoa(F_JSON)+", sql="+strconv.Itoa(F_SQL))
-	flag.StringVar(&c.config, "c", "", "config path. defaults to first config beginning with main.* ex. main.mssql.conf")
-	flag.BoolVar(&c.exec, "e", false, "execute, if not specified then this is dry run")
-	flag.BoolVar(&c.verb, "v", false, "verbose - report progress as program runs")
-
-	flag.Parse()
-
-	return &c
-}
-
 func DpRemoteInit(conf *Config) (*Remote, error) {
 
 	driver, err := conf.Get("driver")
@@ -262,30 +121,30 @@ func DpRemoteInit(conf *Config) (*Remote, error) {
 	return remote, nil
 }
 
-func DpExecuteImport(c *Config, uc *DpUserConf, remote *Remote) error {
-	panic("not implemented")
-	// tbls, err := RemoteGetAllTables(remote)
-	// if err != nil {
-	// 	return err
-	// }
-	// if *e {
-	// 	err := DpStdoutWriteTables(remote, tbls, tablepath, *f)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// } else {
-	// 	for i := 0; i < len(tbls); i++ {
-	// 		bf, err := DpTableString(remote, &tbls[i], *f)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		fmt.Println(string(bf))
-	// 	}
-	// 	if *v {
-	// 		fmt.Println("will be written into " + tablepath)
-	// 	}
-	// }
-}
+//func DpExecuteImport(c *Config, uc *DpUserConf, remote *Remote) error {
+//	panic("not implemented")
+// tbls, err := RemoteGetAllTables(remote)
+// if err != nil {
+// 	return err
+// }
+// if *e {
+// 	err := DpStdoutWriteTables(remote, tbls, tablepath, *f)
+// 	if err != nil {
+// 		return err
+// 	}
+// } else {
+// 	for i := 0; i < len(tbls); i++ {
+// 		bf, err := DpTableString(remote, &tbls[i], *f)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		fmt.Println(string(bf))
+// 	}
+// 	if *v {
+// 		fmt.Println("will be written into " + tablepath)
+// 	}
+// }
+//}
 
 func DpGenerateMergeScr(m *Merger, r *Remote, verbose bool) (string, error) {
 
@@ -531,8 +390,8 @@ func DpProgram() error {
 	uconfig := DpGetUserConf()
 	var err error
 
-	conf := ConfNew()
-	if err := ConfInit(conf, uconfig.config); err != nil {
+	conf := config.New()
+	if err := config.CreateFromPath(conf, uconfig.config); err != nil {
 		return err
 	}
 

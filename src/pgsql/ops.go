@@ -1,14 +1,13 @@
-package main
+package pgsql
 
 import (
-	"container/list"
-	"database/sql"
-	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/kzaag/database-project/src/sql"
 )
 
-func PgsqlColumnType(column *Column) string {
+func ColumnTypeStr(column *sql.Column) string {
 	cs := ""
 	switch strings.ToLower(column.Type) {
 	case "bit":
@@ -172,12 +171,56 @@ func PgsqlColumnType(column *Column) string {
 	return strings.ToUpper(cs)
 }
 
-func PgsqlAlterTypeColumn(r *Remote, typename string, sc *Column, c *Column) string {
+func AddIxStr(tableName string, ix *sql.Index) string {
+	unique := ""
+	if ix.Is_unique {
+		unique = "UNIQUE "
+	}
 
-	ret := ""
+	var t string
 
-	if sc.FullType != c.FullType {
-		ret += fmt.Sprintf("ALTER TYPE %s ALTER ATTRIBUTE %s SET DATA TYPE %s CASCADE", typename, c.Name, c.FullType)
+	if ix.Type != "" {
+		t = strings.ToUpper(ix.Type) + " "
+	}
+
+	ret :=
+		"CREATE " + unique +
+			t + "INDEX " +
+			ix.Name + " ON " + tableName + " ("
+
+	for i := 0; i < len(ix.Columns); i++ {
+		c := ix.Columns[i]
+		if c.Is_Included_column {
+			continue
+		}
+		ret += c.Name
+		if c.Is_descending {
+			ret += " DESC"
+		}
+	}
+
+	ret += ")"
+
+	var includes bool = false
+	for i := 0; i < len(ix.Columns); i++ {
+		c := ix.Columns[i]
+		if !c.Is_Included_column {
+			continue
+		}
+
+		if !includes {
+			ret += " INCLUDE ("
+		}
+		includes = true
+
+		ret += c.Name
+		if c.Is_descending {
+			ret += " DESC"
+		}
+	}
+
+	if includes {
+		ret += ")"
 	}
 
 	ret += ";\n"
@@ -185,7 +228,11 @@ func PgsqlAlterTypeColumn(r *Remote, typename string, sc *Column, c *Column) str
 	return ret
 }
 
-func PgsqlAlterTableColumn(r *Remote, tableName string, sc *Column, c *Column) string {
+func DropIxStr(tableName string, i *sql.Index) string {
+	return "DROP INDEX " + i.Name + ";\n"
+}
+
+func AlterTableColumnStr(tableName string, sc, c *sql.Column) string {
 
 	ret := ""
 
@@ -214,172 +261,35 @@ func PgsqlAlterTableColumn(r *Remote, tableName string, sc *Column, c *Column) s
 	return ret
 }
 
-func PgsqlGetTypes(r *Remote, localTypes []Type) ([]Type, error) {
+func ColumnStr(column *sql.Column) string {
 
-	enums, err := PgsqlGetEnum(r)
-	if err != nil {
-		return nil, err
+	var cs string
+	cs += column.Name + " " + column.FullType
+
+	if (column.Meta & CM_CompType) == CM_CompType {
+		return cs
 	}
 
-	composite, err := PgsqlGetComposite(r)
-	if err != nil {
-		return nil, err
+	if !column.Nullable {
+		cs += " NOT NULL"
+	} else {
+		cs += " NULL"
 	}
 
-	elen := len(enums)
-	clen := len(composite)
-
-	cb := make([]Type, elen+clen)
-
-	for i := 0; i < elen; i++ {
-		v := &enums[i]
-		if TExists(v, localTypes) {
-			cb[i] = *v
-		}
+	if column.Identity {
+		cs += " GENERATED ALWAYS AS IDENTITY"
 	}
 
-	for i := 0; i < clen; i++ {
-		v := &composite[i]
-		if TExists(v, localTypes) {
-			cb[elen+i] = *v
-		}
-	}
-
-	return cb, nil
+	return cs
 }
 
-func PgsqlGetEnum(r *Remote) ([]Type, error) {
+func AddColumn(tableName string, c *sql.Column) string {
 
-	q := `select typname from pg_type where typcategory = 'E'`
-	rows, err := r.conn.Query(q)
-	if err != nil {
-		return nil, err
+	s := ColumnStr(r, c)
+
+	if (c.Meta & CM_CompType) == CM_CompType {
+		return "ALTER TYPE " + tableName + " ADD ATTRIBUTE " + s + " CASCADE;\n"
 	}
 
-	var tps []Type
-
-	for rows.Next() {
-		var enumname string
-		err := rows.Scan(&enumname)
-		if err != nil {
-			return nil, err
-		}
-		tps = append(tps, Type{enumname, TT_Enum, nil, nil})
-	}
-
-	query := `select e.enumlabel
-			 from pg_enum e
-			 join pg_type t ON e.enumtypid = t.oid
-			 where typname = $1
-			 order by enumsortorder;`
-
-	for i := 0; i < len(tps); i++ {
-
-		tp := &tps[i]
-		rows, err := r.conn.Query(query, tp.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		cols := list.New()
-		for rows.Next() {
-			var colname string
-			err := rows.Scan(&colname)
-			if err != nil {
-				return nil, err
-			}
-			cols.PushBack(colname)
-		}
-
-		tp.Values = make([]string, cols.Len())
-
-		for i, x := 0, cols.Front(); x != nil; i, x = i+1, x.Next() {
-			tp.Values[i] = x.Value.(string)
-		}
-
-	}
-
-	return tps, nil
-}
-
-func PgsqlGetComposite(r *Remote) ([]Type, error) {
-
-	q := `select typname from pg_type where typcategory = 'C' and typarray <> 0;`
-	rows, err := r.conn.Query(q)
-	if err != nil {
-		return nil, err
-	}
-
-	var tps []Type
-
-	for rows.Next() {
-		var name string
-		err := rows.Scan(&name)
-		if err != nil {
-			return nil, err
-		}
-		tps = append(tps, Type{name, TT_Composite, nil, nil})
-	}
-
-	query := `SELECT attname, UPPER(format_type(atttypid, atttypmod)) AS type
-			FROM   pg_attribute
-			WHERE  attrelid = $1::regclass
-			AND    attnum > 0
-			AND    NOT attisdropped
-			ORDER  BY attnum;`
-
-	for i := 0; i < len(tps); i++ {
-		tp := &tps[i]
-		rows, err := r.conn.Query(query, tp.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		cols := list.New()
-		for rows.Next() {
-			var colname string
-			var coltype string
-			err := rows.Scan(&colname, &coltype)
-			c := Column{colname, "", coltype, -1, -1, -1, false, false, CM_CompType}
-			if err != nil {
-				return nil, err
-			}
-			cols.PushBack(c)
-		}
-
-		tp.Columns = make([]Column, cols.Len())
-
-		for i, x := 0, cols.Front(); x != nil; i, x = i+1, x.Next() {
-			tp.Columns[i] = x.Value.(Column)
-		}
-	}
-
-	return tps, nil
-}
-
-func PgsqlGetTypedTableInfo(r *Remote, t *Table) error {
-
-	var err error
-	var rows *sql.Rows
-
-	q :=
-		`select 
-		user_defined_type_name 
-	from information_schema.tables where table_name = $1`
-
-	if rows, err = r.conn.Query(q, t.Name); err != nil {
-		return err
-	}
-
-	for rows.Next() {
-		var ptname *string
-		if err = rows.Scan(&ptname); err != nil {
-			return err
-		}
-		if ptname != nil {
-			t.Type = *ptname
-		}
-	}
-
-	return nil
+	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
 }

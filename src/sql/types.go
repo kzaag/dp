@@ -1,4 +1,4 @@
-package main
+package sql
 
 type IndexColumn struct {
 	Name               string
@@ -76,10 +76,10 @@ type Column struct {
 	Meta ColumnMeta
 }
 
-// will set FullType field based on rest of fields
-func (rc *Column) SetFullType(r *Remote) {
-	rc.FullType = RemoteColumnType(r, rc)
-}
+// // will set FullType field based on rest of fields
+// func (rc *Column) SetFullType(r *Remote) {
+// 	rc.FullType = RemoteColumnType(r, rc)
+// }
 
 type Table struct {
 	Name    string
