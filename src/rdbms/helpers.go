@@ -1,30 +1,11 @@
-package main
+package rdbms
 
 import (
 	"container/list"
 	"database/sql"
 )
 
-// func MapTableNames(r *sql.Rows) ([]string, error) {
-// 	buff := list.New()
-// 	for r.Next() {
-// 		var t string
-// 		err := r.Scan(&t)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		buff.PushBack(t)
-// 	}
-
-// 	var ret = make([]string, buff.Len())
-// 	for i, x := 0, buff.Front(); i < buff.Len(); i, x = i+1, x.Next() {
-// 		ret[i] = x.Value.(string)
-// 	}
-
-// 	return ret, nil
-// }
-
-func MapCheck(r *sql.Rows) ([]Check, error) {
+func HelperMapChecks(r *sql.Rows) ([]Check, error) {
 	tmp := list.New()
 	for r.Next() {
 		var k Check
@@ -43,7 +24,7 @@ func MapCheck(r *sql.Rows) ([]Check, error) {
 	return cs, nil
 }
 
-func MapColumns(remote *Remote, r *sql.Rows) ([]Column, error) {
+func HelperMapColumns(r *sql.Rows) ([]Column, error) {
 
 	buff := list.New()
 	for r.Next() {
@@ -59,7 +40,8 @@ func MapColumns(remote *Remote, r *sql.Rows) ([]Column, error) {
 		if err != nil {
 			return nil, err
 		}
-		el.SetFullType(remote)
+		//el.FullType = ColumnT
+		//el.SetFullType(remote)
 		buff.PushBack(el)
 	}
 
@@ -71,7 +53,7 @@ func MapColumns(remote *Remote, r *sql.Rows) ([]Column, error) {
 	return ret, nil
 }
 
-func MapCColumns(r *sql.Rows) ([]ConstraintColumn, error) {
+func HelperMapCColumns(r *sql.Rows) ([]ConstraintColumn, error) {
 	tmp := list.New()
 
 	for r.Next() {
@@ -89,7 +71,7 @@ func MapCColumns(r *sql.Rows) ([]ConstraintColumn, error) {
 	return cols, nil
 }
 
-func MapIxColumns(rows *sql.Rows) ([]IndexColumn, error) {
+func HelperMapIxColumns(rows *sql.Rows) ([]IndexColumn, error) {
 	ccs := list.New()
 	for rows.Next() {
 		var cc IndexColumn
@@ -107,13 +89,4 @@ func MapIxColumns(rows *sql.Rows) ([]IndexColumn, error) {
 	}
 
 	return ret, nil
-}
-
-func TExists(t *Type, localTypes []Type) bool {
-	for i := 0; i < len(localTypes); i++ {
-		if localTypes[i].Name == t.Name {
-			return true
-		}
-	}
-	return false
 }

@@ -1,14 +1,8 @@
 package main
 
 import (
-	"database/sql"
-	"fmt"
-	"os"
-	"time"
-
-	"github.com/kzaag/database-project/src/config"
-
 	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/kzaag/database-project/rdbms"
 	_ "github.com/lib/pq"
 )
 
@@ -81,46 +75,6 @@ import (
 // 	return nil
 // }
 
-func DpRemoteInit(conf *Config) (*Remote, error) {
-
-	driver, err := conf.Get("driver")
-	if err != nil {
-		return nil, err
-	}
-
-	var cs string
-	switch driver {
-	case "postgres":
-		cs, err = conf.PgCs()
-		if err != nil {
-			return nil, err
-		}
-	case "sqlserver":
-		cs, err = conf.SqlCs()
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, fmt.Errorf("driver is not supported")
-	}
-
-	db, err := sql.Open(driver, cs)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var remote *Remote
-	switch driver {
-	case "postgres":
-		remote = RemotePgsql(db)
-	case "sqlserver":
-		remote = RemoteMssql(db)
-	}
-
-	return remote, nil
-}
-
 //func DpExecuteImport(c *Config, uc *DpUserConf, remote *Remote) error {
 //	panic("not implemented")
 // tbls, err := RemoteGetAllTables(remote)
@@ -146,305 +100,307 @@ func DpRemoteInit(conf *Config) (*Remote, error) {
 // }
 //}
 
-func DpGenerateMergeScr(m *Merger, r *Remote, verbose bool) (string, error) {
+// func DpGenerateMergeScr(m *Merger, r *Remote, verbose bool) (string, error) {
 
-	var start time.Time
-	if verbose {
-		start = time.Now()
-	}
+// 	var start time.Time
+// 	if verbose {
+// 		start = time.Now()
+// 	}
 
-	script, err := MergeSchema(m, r)
+// 	script, err := MergeSchema(m, r)
 
-	if verbose {
-		elapsed := time.Since(start)
-		fmt.Printf("Generated merge script in %s. \n", elapsed.String())
-	}
+// 	if verbose {
+// 		elapsed := time.Since(start)
+// 		fmt.Printf("Generated merge script in %s. \n", elapsed.String())
+// 	}
 
-	return script, err
-}
+// 	return script, err
+// }
 
-func DpDisplayScript(script string, uc *DpUserConf) {
+// func DpDisplayScript(script string, uc *DpUserConf) {
 
-	if script == EMPTY {
+// 	if script == EMPTY {
 
-		if uc.verb {
+// 		if uc.verb {
 
-			fmt.Print("\n\033[0;32mNo merge needed\033[0m\n\n")
-		}
+// 			fmt.Print("\n\033[0;32mNo merge needed\033[0m\n\n")
+// 		}
 
-	} else {
+// 	} else {
 
-		if uc.verb {
-			fmt.Print("\n\033[0;36m-----BEGIN SCRIPT-----\033[0m\n\n")
-		}
+// 		if uc.verb {
+// 			fmt.Print("\n\033[0;36m-----BEGIN SCRIPT-----\033[0m\n\n")
+// 		}
 
-		fmt.Print(script)
+// 		fmt.Print(script)
 
-		if uc.verb {
-			fmt.Print("\n\033[0;36m-----END SCRIPT-----\033[0m\n\n")
-		}
+// 		if uc.verb {
+// 			fmt.Print("\n\033[0;36m-----END SCRIPT-----\033[0m\n\n")
+// 		}
 
-	}
+// 	}
 
-}
+// }
 
-func DpExecuteScript(script string, uc *DpUserConf, remote *Remote) error {
+// func DpExecuteScript(script string, uc *DpUserConf, remote *Remote) error {
 
-	var err error
+// 	var err error
 
-	if uc.verb {
+// 	if uc.verb {
 
-		if uc.verb {
-			fmt.Print("\n\033[0;36m-----BEGIN SCRIPT-----\033[0m\n\n")
-		}
+// 		if uc.verb {
+// 			fmt.Print("\n\033[0;36m-----BEGIN SCRIPT-----\033[0m\n\n")
+// 		}
 
-		start := time.Now()
-		c, _, err := DpExecuteCmdsVerbose(remote.conn, script)
-		if err != nil {
-			fmt.Println("\033[0;31mcouldnt complete deploy.\033[0m")
-			return err
-		}
-		elapsed := time.Since(start)
+// 		start := time.Now()
+// 		c, _, err := DpExecuteCmdsVerbose(remote.conn, script)
+// 		if err != nil {
+// 			fmt.Println("\033[0;31mcouldnt complete deploy.\033[0m")
+// 			return err
+// 		}
+// 		elapsed := time.Since(start)
 
-		if uc.verb {
-			fmt.Print("\n\033[0;36m-----END SCRIPT-----\033[0m\n\n")
-		}
+// 		if uc.verb {
+// 			fmt.Print("\n\033[0;36m-----END SCRIPT-----\033[0m\n\n")
+// 		}
 
-		fmt.Printf("\033[4;32mMerge completed in %s. Executed %d operations.\033[0m\n\n", elapsed.String(), c)
+// 		fmt.Printf("\033[4;32mMerge completed in %s. Executed %d operations.\033[0m\n\n", elapsed.String(), c)
 
-	} else {
+// 	} else {
 
-		if err = DpExecuteCmds(remote.conn, script); err != nil {
-			return err
-		}
+// 		if err = DpExecuteCmds(remote.conn, script); err != nil {
+// 			return err
+// 		}
 
-	}
+// 	}
 
-	return nil
+// 	return nil
 
-}
+// }
 
-func DpExecuteMerge(c *Config, uc *DpUserConf, remote *Remote) error {
+// func DpExecuteMerge(c *Config, uc *DpUserConf, remote *Remote) error {
 
-	if uc.verb {
-		fmt.Print("\nBeginning merge...\n\n")
-	}
+// 	if uc.verb {
+// 		fmt.Print("\nBeginning merge...\n\n")
+// 	}
 
-	var merge *Merger = MergeNew()
+// 	var merge *Merger = MergeNew()
 
-	var err error
+// 	var err error
 
-	if err = DpInitLocalSchema(merge, c, remote, uc.verb); err != nil {
-		return err
-	}
+// 	if err = DpInitLocalSchema(merge, c, remote, uc.verb); err != nil {
+// 		return err
+// 	}
 
-	if err = DpInitRemoteSchema(remote, merge, uc.verb); err != nil {
-		return err
-	}
+// 	if err = DpInitRemoteSchema(remote, merge, uc.verb); err != nil {
+// 		return err
+// 	}
 
-	var script string
-	if script, err = DpGenerateMergeScr(merge, remote, uc.verb); err != nil {
-		return err
-	}
+// 	var script string
+// 	if script, err = DpGenerateMergeScr(merge, remote, uc.verb); err != nil {
+// 		return err
+// 	}
 
-	if uc.exec {
-		err = DpExecuteScript(script, uc, remote)
-	} else {
-		DpDisplayScript(script, uc)
-	}
+// 	if uc.exec {
+// 		err = DpExecuteScript(script, uc, remote)
+// 	} else {
+// 		DpDisplayScript(script, uc)
+// 	}
 
-	if err != nil {
-		return err
-	}
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func DpExecuteProfiles(c *Config, uc *DpUserConf, remote *Remote) error {
+// func DpExecuteProfiles(c *Config, uc *DpUserConf, remote *Remote) error {
 
-	var err error
-	var profile string
+// 	var err error
+// 	var profile string
 
-	if profile, err = c.Get("profile"); err != nil {
-		profile = uc.profile
-	}
+// 	if profile, err = c.Get("profile"); err != nil {
+// 		profile = uc.profile
+// 	}
 
-	switch profile {
-	case "merge":
+// 	switch profile {
+// 	case "merge":
 
-		err = DpExecuteMerge(c, uc, remote)
+// 		err = DpExecuteMerge(c, uc, remote)
 
-	case "import":
+// 	case "import":
 
-		err = DpExecuteImport(c, uc, remote)
+// 		err = DpExecuteImport(c, uc, remote)
 
-	default:
+// 	default:
 
-		return nil
+// 		return nil
 
-	}
+// 	}
 
-	return err
-}
+// 	return err
+// }
 
-func DpInitLocalSchema(m *Merger, conf *Config, r *Remote, verbose bool) error {
+// func DpInitLocalSchema(m *Merger, conf *Config, r *Remote, verbose bool) error {
 
-	var start time.Time
-	if verbose {
-		start = time.Now()
-	}
+// 	var start time.Time
+// 	if verbose {
+// 		start = time.Now()
+// 	}
 
-	var tpath, tppath string
-	var err error
+// 	var tpath, tppath string
+// 	var err error
 
-	if tpath, err = conf.Get("tables"); err != nil {
-		return err
-	}
+// 	if tpath, err = conf.Get("tables"); err != nil {
+// 		return err
+// 	}
 
-	// optional field and can fail
-	if tppath, err = conf.Get("types"); err != nil {
-		tppath = ""
-	}
+// 	// optional field and can fail
+// 	if tppath, err = conf.Get("types"); err != nil {
+// 		tppath = ""
+// 	}
 
-	var t []Table
-	var tp []Type
+// 	var t []Table
+// 	var tp []Type
 
-	if t, err = ReadTables(tpath, r); err != nil {
-		return err
-	}
+// 	if t, err = ReadTables(tpath, r); err != nil {
+// 		return err
+// 	}
 
-	if len(tppath) != 0 {
-		if tp, err = ReadTypes(tppath, r); err != nil {
-			return err
-		}
-	}
+// 	if len(tppath) != 0 {
+// 		if tp, err = ReadTypes(tppath, r); err != nil {
+// 			return err
+// 		}
+// 	}
 
-	m.SetLocalSchema(t, tp)
+// 	m.SetLocalSchema(t, tp)
 
-	if verbose {
-		elapsed := time.Since(start)
-		fmt.Printf("Parsed local schema in %s. \n", elapsed.String())
-	}
+// 	if verbose {
+// 		elapsed := time.Since(start)
+// 		fmt.Printf("Parsed local schema in %s. \n", elapsed.String())
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func DpInitRemoteSchema(r *Remote, m *Merger, verbose bool) error {
+// func DpInitRemoteSchema(r *Remote, m *Merger, verbose bool) error {
 
-	var start time.Time
-	if verbose {
-		start = time.Now()
-	}
+// 	var start time.Time
+// 	if verbose {
+// 		start = time.Now()
+// 	}
 
-	if m.localTables == nil {
-		return fmt.Errorf("merger local schema wasnt inizialized")
-	}
+// 	if m.localTables == nil {
+// 		return fmt.Errorf("merger local schema wasnt inizialized")
+// 	}
 
-	var err error
+// 	var err error
 
-	if m.remTables, err = RemoteGetMatchTables(r, m.localTables); err != nil {
-		return err
-	}
+// 	if m.remTables, err = RemoteGetMatchTables(r, m.localTables); err != nil {
+// 		return err
+// 	}
 
-	if m.localTypes != nil {
-		if m.remTypes, err = RemoteGetTypes(r, m.localTypes); err != nil {
-			return err
-		}
-	}
+// 	if m.localTypes != nil {
+// 		if m.remTypes, err = RemoteGetTypes(r, m.localTypes); err != nil {
+// 			return err
+// 		}
+// 	}
 
-	if verbose {
-		elapsed := time.Since(start)
-		fmt.Printf("Downloaded remote schema in %s. \n", elapsed.String())
-	}
+// 	if verbose {
+// 		elapsed := time.Since(start)
+// 		fmt.Printf("Downloaded remote schema in %s. \n", elapsed.String())
+// 	}
 
-	return nil
+// 	return nil
 
-}
+// }
 
-func DpExecPaths(paths []string, uconfig *DpUserConf, remote *Remote) error {
+// func DpExecPaths(paths []string, uconfig *DpUserConf, remote *Remote) error {
 
-	if paths == nil {
-		return nil
-	}
+// 	if paths == nil {
+// 		return nil
+// 	}
 
-	var spec *ScriptSpec
-	var err error
+// 	var spec *ScriptSpec
+// 	var err error
 
-	for i := 0; i < len(paths); i++ {
+// 	for i := 0; i < len(paths); i++ {
 
-		if spec, err = ConfScriptSpec(paths[i]); err != nil {
-			return err
-		}
+// 		if spec, err = ConfScriptSpec(paths[i]); err != nil {
+// 			return err
+// 		}
 
-		if err := DpExecuteSpec(remote.conn, spec, uconfig); err != nil {
-			return err
-		}
+// 		if err := DpExecuteSpec(remote.conn, spec, uconfig); err != nil {
+// 			return err
+// 		}
 
-	}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func DpProgram() error {
+// func DpProgram() error {
 
-	uconfig := DpGetUserConf()
-	var err error
+// 	uconfig := DpGetUserConf()
+// 	var err error
 
-	conf := config.New()
-	if err := config.CreateFromPath(conf, uconfig.config); err != nil {
-		return err
-	}
+// 	conf := config.New()
+// 	if err := config.CreateFromPath(conf, uconfig.config); err != nil {
+// 		return err
+// 	}
 
-	var remote *Remote
+// 	var remote *Remote
 
-	if remote, err = DpRemoteInit(conf); err != nil {
-		return err
-	}
+// 	if remote, err = DpRemoteInit(conf); err != nil {
+// 		return err
+// 	}
 
-	defer remote.conn.Close()
+// 	defer remote.conn.Close()
 
-	if uconfig.verb && conf.Before != nil && len(conf.Check) != 0 {
-		fmt.Print("\033[0;36m\nCheck:\033[0m\n")
-	}
+// 	if uconfig.verb && conf.Before != nil && len(conf.Check) != 0 {
+// 		fmt.Print("\033[0;36m\nCheck:\033[0m\n")
+// 	}
 
-	/* check is always executed */
-	uconfig.exec = true
-	if err = DpExecPaths(conf.Check, uconfig, remote); err != nil {
-		return err
-	}
-	uconfig.exec = false
+// 	/* check is always executed */
+// 	uconfig.exec = true
+// 	if err = DpExecPaths(conf.Check, uconfig, remote); err != nil {
+// 		return err
+// 	}
+// 	uconfig.exec = false
 
-	if uconfig.verb && conf.Before != nil && len(conf.Before) != 0 {
-		fmt.Print("\033[0;36m\nBefore:\033[0m\n")
-	}
+// 	if uconfig.verb && conf.Before != nil && len(conf.Before) != 0 {
+// 		fmt.Print("\033[0;36m\nBefore:\033[0m\n")
+// 	}
 
-	if err = DpExecPaths(conf.Before, uconfig, remote); err != nil {
-		return err
-	}
+// 	if err = DpExecPaths(conf.Before, uconfig, remote); err != nil {
+// 		return err
+// 	}
 
-	if err = DpExecuteProfiles(conf, uconfig, remote); err != nil {
-		return err
-	}
+// 	if err = DpExecuteProfiles(conf, uconfig, remote); err != nil {
+// 		return err
+// 	}
 
-	if uconfig.verb && conf.After != nil && len(conf.After) != 0 {
-		fmt.Print("\033[0;36mAfter:\033[0m\n")
-	}
+// 	if uconfig.verb && conf.After != nil && len(conf.After) != 0 {
+// 		fmt.Print("\033[0;36mAfter:\033[0m\n")
+// 	}
 
-	if err = DpExecPaths(conf.After, uconfig, remote); err != nil {
-		return err
-	}
+// 	if err = DpExecPaths(conf.After, uconfig, remote); err != nil {
+// 		return err
+// 	}
 
-	if uconfig.verb && conf.After != nil && len(conf.After) != 0 {
-		fmt.Println()
-	}
+// 	if uconfig.verb && conf.After != nil && len(conf.After) != 0 {
+// 		fmt.Println()
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func main() {
-	err := DpProgram()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	x := rdbms.Rdbms{}
+	_ = x
+	// err := DpProgram()
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
 }

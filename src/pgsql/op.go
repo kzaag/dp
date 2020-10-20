@@ -293,3 +293,85 @@ func AddColumn(tableName string, c *sql.Column) string {
 
 	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
 }
+
+func AddTypeStr(t *sql.Type) string {
+
+	if remote.tp != Pgsql {
+		panic("not implemented")
+	}
+
+	ret := ""
+
+	ret += "CREATE TYPE " + t.Name + " AS"
+
+	switch t.Type {
+	case TT_Enum:
+
+		ret += " ENUM ("
+
+		for i := 0; i < len(t.Values); i++ {
+			if i > 0 {
+				ret += ","
+			}
+			ret += "'" + t.Values[i] + "'"
+		}
+
+		ret += ");\n"
+
+	case TT_Composite:
+
+		ret += " ("
+
+		for i := 0; i < len(t.Columns); i++ {
+			if i > 0 {
+				ret += ","
+			}
+			ret += RemoteTypeColumn(remote, &t.Columns[i])
+		}
+
+		ret += ");\n"
+	}
+
+	return ret
+}
+
+func AddTableStr(t *sql.Table) string {
+	ret := ""
+
+	if t.Type != "" && remote.tp == Pgsql {
+		return "CREATE TABLE " + t.Name + " OF " + t.Type + ";\n"
+	}
+
+	ret += "CREATE TABLE " + t.Name + " ( \n"
+
+	for i := 0; i < len(t.Columns); i++ {
+		column := &t.Columns[i]
+		columnStr := RemoteColumn(remote, column)
+		ret += "\t" + columnStr + ",\n"
+	}
+
+	ret = strings.TrimSuffix(ret, ",\n")
+	ret += "\n);\n"
+
+	return ret
+}
+
+func DropTypeStr(t *sql.Type) string {
+	return "DROP TYPE " + t.Name + ";\n"
+}
+
+func OP_AlterColumn(parentName string, old *sql.Column, new *sql.Column) string {
+	if (new.Meta & CM_CompType) == CM_CompType {
+		return "ALTER TYPE " + typename + " DROP ATTRIBUTE " + c.Name + " CASCADE;\n"
+	}
+	return "ALTER TABLE " + tableName + " DROP COLUMN " + c.Name + ";\n"
+}
+
+func RemoteDropColumn(typename string, c *sql.Column) string {
+	switch c.Meta {
+	case CM_CompType:
+		return "ALTER TYPE " + typename + " DROP ATTRIBUTE " + c.Name + " CASCADE;\n"
+	default:
+		return "ALTER TABLE " + tableName + " DROP COLUMN " + c.Name + ";\n"
+	}
+}

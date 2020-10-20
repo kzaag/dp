@@ -136,3 +136,16 @@ func ColumnStr(column *sql.Column) string {
 
 	return cs
 }
+
+func OP_AddColumn(tableName string, c *sql.Column) string {
+	s := ColumnStr(c)
+	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
+}
+
+func OP_AlterColumn(parentName string, old *sql.Column, new *sql.Column) string {
+	return AlterTableColumnStr(parentName, new)
+}
+
+func RemoteDropColumn(typename string, c *sql.Column) string {
+	return "ALTER TABLE " + tableName + " DROP COLUMN " + c.Name + ";\n"
+}

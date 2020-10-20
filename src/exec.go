@@ -50,7 +50,7 @@ func ExecCmds(db *sql.DB, cmds string) error {
 
 func ExecFile(db *sql.DB, filePath string, params ExecParams) error {
 
-	b, err := ioutil.ReadFile(spec.Path)
+	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func ExecFile(db *sql.DB, filePath string, params ExecParams) error {
 
 	if params.verb {
 		fmt.Print(filePath)
-		if uc.exec {
+		if params.exec {
 			el := time.Since(t)
 			fmt.Printf(" in %s", el.String())
 		}

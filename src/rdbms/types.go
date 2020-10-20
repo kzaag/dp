@@ -1,4 +1,4 @@
-package sql
+package rdbms
 
 type IndexColumn struct {
 	Name               string
@@ -90,18 +90,6 @@ type Table struct {
 	Primary *PrimaryKey
 	Check   []Check
 	Indexes []Index
-}
-
-const (
-	TT_Enum      string = "enum"
-	TT_Composite string = "composite"
-)
-
-type Type struct {
-	Name    string
-	Type    string
-	Values  []string
-	Columns []Column
 }
 
 // type DbConstraint struct {
