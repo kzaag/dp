@@ -396,8 +396,7 @@ import (
 // }
 
 func main() {
-	x := rdbms.Rdbms{}
-	_ = x
+	_ = rdbms.RdbmsTableStore{}
 	// err := DpProgram()
 	// if err != nil {
 	// 	fmt.Println(err)

@@ -1,26 +1,16 @@
 package rdbms
 
-type Rdbms struct {
-	remTables   []Table
-	localTables []Table
-	create      *string
-	drop        *string
-	//
-	AddColumn      func(string, *Column) string
-	AlterColumn    func(string, *Column, *Column) string
-	DropColumn     func(string, *Column) string
-	ColumnType     func(*Column) string
-	AddIndex       func(string, *Index) string
-	DropIndex      func(string, *Index) string
-	DropConstraint func(string, *Constraint) string
-	AddUnique      func(string, *Unique) string
-	AddCheck       func(string, *Check) string
-	AddFK          func(string, *ForeignKey) string
-	AddPK          func(string, *PrimaryKey) string
-	CreateTable    func(*Table) string
-}
-
-func (m *Rdbms) SetBuffers(create *string, drop *string) {
-	m.create = create
-	m.drop = drop
+type IRdbmsDef interface {
+	AddColumn(string, *Column) string
+	AlterColumn(string, *Column, *Column) string
+	DropColumn(string, *Column) string
+	ColumnType(*Column) string
+	AddIndex(string, *Index) string
+	DropIndex(string, *Index) string
+	DropConstraint(string, *Constraint) string
+	AddUnique(string, *Unique) string
+	AddCheck(string, *Check) string
+	AddFK(string, *ForeignKey) string
+	AddPK(string, *PrimaryKey) string
+	CreateTable(*Table) string
 }

@@ -69,7 +69,7 @@ func __ParserElevateErrorColumn(tname string, err error) error {
 	return fmt.Errorf("in column %s: %s", tname, err.Error())
 }
 
-func ParserValidateColumn(ctx *Rdbms, c []Column) error {
+func ParserValidateColumn(ctx IRdbmsDef, c []Column) error {
 	if len(c) == 0 {
 		return nil
 	}
@@ -186,7 +186,7 @@ func __ParserErrorTable(tname string, err error) error {
 	return fmt.Errorf("in table %s: %s", tname, err.Error())
 }
 
-func ParserValidateTables(ctx *Rdbms, tables []Table) error {
+func ParserValidateTables(ctx IRdbmsDef, tables []Table) error {
 	if tables == nil {
 		return nil
 	}
@@ -218,7 +218,7 @@ func ParserValidateTables(ctx *Rdbms, tables []Table) error {
 	return nil
 }
 
-func ParserGetTablesInDir(ctx *Rdbms, dir string) ([]Table, error) {
+func ParserGetTablesInDir(ctx IRdbmsDef, dir string) ([]Table, error) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
