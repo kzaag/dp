@@ -2,47 +2,14 @@ package pgsql
 
 import (
 	"container/list"
+	"database-project/rdbms"
 	"database/sql"
 )
 
-func REM_GetTypes(r *Remote, localTypes []Type) ([]Type, error) {
-
-	enums, err := PgsqlGetEnum(r)
-	if err != nil {
-		return nil, err
-	}
-
-	composite, err := PgsqlGetComposite(r)
-	if err != nil {
-		return nil, err
-	}
-
-	elen := len(enums)
-	clen := len(composite)
-
-	cb := make([]Type, elen+clen)
-
-	for i := 0; i < elen; i++ {
-		v := &enums[i]
-		if TExists(v, localTypes) {
-			cb[i] = *v
-		}
-	}
-
-	for i := 0; i < clen; i++ {
-		v := &composite[i]
-		if TExists(v, localTypes) {
-			cb[elen+i] = *v
-		}
-	}
-
-	return cb, nil
-}
-
-func REM_GetEnum() ([]Type, error) {
+func REM_GetEnum(db *sql.DB) ([]Type, error) {
 
 	q := `select typname from pg_type where typcategory = 'E'`
-	rows, err := r.conn.Query(q)
+	rows, err := db.Query(q)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +34,7 @@ func REM_GetEnum() ([]Type, error) {
 	for i := 0; i < len(tps); i++ {
 
 		tp := &tps[i]
-		rows, err := r.conn.Query(query, tp.Name)
+		rows, err := db.Query(query, tp.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -93,10 +60,10 @@ func REM_GetEnum() ([]Type, error) {
 	return tps, nil
 }
 
-func REM_GetComposite() ([]Type, error) {
+func REM_GetComposite(db *sql.DB) ([]Type, error) {
 
 	q := `select typname from pg_type where typcategory = 'C' and typarray <> 0;`
-	rows, err := r.conn.Query(q)
+	rows, err := db.Query(q)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +88,7 @@ func REM_GetComposite() ([]Type, error) {
 
 	for i := 0; i < len(tps); i++ {
 		tp := &tps[i]
-		rows, err := r.conn.Query(query, tp.Name)
+		rows, err := db.Query(query, tp.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -131,142 +98,103 @@ func REM_GetComposite() ([]Type, error) {
 			var colname string
 			var coltype string
 			err := rows.Scan(&colname, &coltype)
-			c := Column{colname, "", coltype, -1, -1, -1, false, false, CM_CompType}
+			c := rdbms.Column{colname, "", coltype, -1, -1, -1, false, false, rdbms.CM_CompType}
 			if err != nil {
 				return nil, err
 			}
 			cols.PushBack(c)
 		}
 
-		tp.Columns = make([]Column, cols.Len())
+		tp.Columns = make([]rdbms.Column, cols.Len())
 
 		for i, x := 0, cols.Front(); x != nil; i, x = i+1, x.Next() {
-			tp.Columns[i] = x.Value.(Column)
+			tp.Columns[i] = x.Value.(rdbms.Column)
 		}
 	}
 
 	return tps, nil
 }
 
-func REM_GetTypedTableInfo(t *sql.Table) error {
+func REM_GetTypes(db *sql.DB, localTypes []Type) ([]Type, error) {
 
-	var err error
-	var rows *sql.Rows
-
-	q :=
-		`select 
-		user_defined_type_name 
-	from information_schema.tables where table_name = $1`
-
-	if rows, err = r.conn.Query(q, t.Name); err != nil {
-		return err
-	}
-
-	for rows.Next() {
-		var ptname *string
-		if err = rows.Scan(&ptname); err != nil {
-			return err
-		}
-		if ptname != nil {
-			t.Type = *ptname
-		}
-	}
-
-	return nil
-}
-
-func REM_GetMatchTables(userTables []sql.Table) ([]Table, error) {
-
-	tbls := make([]Table, len(userTables))
-
-	for i := 0; i < len(userTables); i++ {
-		tbl, err := GetTableDef(remote, userTables[i].Name)
-		if err != nil {
-			return nil, err
-		}
-		if tbl == nil {
-			continue
-		}
-		tbls[i] = *tbl
-	}
-
-	return tbls, nil
-}
-
-func RemoteGetAllUnique(tableName string) ([]Unique, error) {
-
-	var rows *sql.Rows
-	var err error
-
-	rows, err = r.conn.Query(
-		`select tc.constraint_name
-		from information_schema.table_constraints tc
-		where tc.table_name = $1 and tc.constraint_type='UNIQUE'`, tableName)
+	enums, err := REM_GetEnum(db)
 	if err != nil {
 		return nil, err
 	}
 
-	tmp := list.New()
-	for rows.Next() {
-		var k Unique
-		err := rows.Scan(&k.Name)
-		if err != nil {
-			return nil, err
-		}
-		tmp.PushBack(k)
-	}
-
-	ret := make([]Unique, tmp.Len())
-	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
-		c := x.Value.(Unique)
-		rows, err = r.conn.Query(
-			`select column_name, false as Is_descending
-			from information_schema.constraint_column_usage 
-			where constraint_name = $1`, c.Name)
-		if err != nil {
-			return nil, err
-		}
-		c.Columns, err = MapCColumns(rows)
-		if err != nil {
-			return nil, err
-		}
-		ret[i] = c
-	}
-
-	return ret, nil
-}
-
-func GetAllCheck(tableName string) ([]Check, error) {
-
-	var rows *sql.Rows
-	var err error
-
-	rows, err = r.conn.Query(
-		`select tc.constraint_name, cc.check_clause
-		from information_schema.table_constraints tc
-		inner join information_schema.check_constraints cc 
-			on cc.constraint_name = tc.constraint_name
-		where tc.table_name = $1 and tc.constraint_type='CHECK' and exists (
-			select 1 from information_schema.constraint_column_usage where constraint_name = cc.constraint_name
-		)`, tableName)
+	composite, err := REM_GetComposite(db)
 	if err != nil {
 		return nil, err
 	}
 
-	c, err := MapCheck(rows)
-	if err != nil {
-		return nil, err
+	elen := len(enums)
+	clen := len(composite)
+
+	cb := make([]Type, elen+clen)
+
+	for i := 0; i < elen; i++ {
+		v := &enums[i]
+		if HelperTypeExists(v, localTypes) {
+			cb[i] = *v
+		}
 	}
 
-	return c, nil
+	for i := 0; i < clen; i++ {
+		v := &composite[i]
+		if HelperTypeExists(v, localTypes) {
+			cb[elen+i] = *v
+		}
+	}
+
+	return cb, nil
 }
 
-func RemoteGetAllColumn(r *Remote, tableName string) ([]Column, error) {
+func RemoteGetAllPK(db *sql.DB, tableName string) (*rdbms.PrimaryKey, error) {
 
 	var rows *sql.Rows
 	var err error
 
-	rows, err = r.conn.Query(
+	rows, err = db.Query(
+		`select constraint_name 
+		from information_schema.table_constraints 
+		where constraint_type ='PRIMARY KEY' and table_name = $1`, tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	if !rows.Next() {
+		return nil, nil
+	}
+
+	var ret rdbms.PrimaryKey
+	if err = rows.Scan(&ret.Name); err != nil {
+		return nil, err
+	}
+
+	rows, err = db.Query(
+		`select column_name, false as is_descending
+		from information_schema.key_column_usage 
+		where constraint_name = $1`, ret.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	cols, err := rdbms.HelperMapCColumns(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	ret.Columns = cols
+
+	return &ret, nil
+}
+
+func RemoteGetAllColumn(db *sql.DB, tableName string) ([]rdbms.Column, error) {
+
+	var rows *sql.Rows
+	var err error
+
+	rows, err = db.Query(
 		`select 
 			column_name, 
 			udt_name,--UPPER(data_type), 
@@ -282,7 +210,7 @@ func RemoteGetAllColumn(r *Remote, tableName string) ([]Column, error) {
 		return nil, err
 	}
 
-	c, err := MapColumns(r, rows)
+	c, err := HelperMapColumns(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -290,12 +218,80 @@ func RemoteGetAllColumn(r *Remote, tableName string) ([]Column, error) {
 	return c, nil
 }
 
-func RemoteGetAllFK(r *Remote, tableName string) ([]ForeignKey, error) {
+func RemoteGetAllUnique(db *sql.DB, tableName string) ([]rdbms.Unique, error) {
 
 	var rows *sql.Rows
 	var err error
 
-	rows, err = r.conn.Query(
+	rows, err = db.Query(
+		`select tc.constraint_name
+		from information_schema.table_constraints tc
+		where tc.table_name = $1 and tc.constraint_type='UNIQUE'`, tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	tmp := list.New()
+	for rows.Next() {
+		var k rdbms.Unique
+		err := rows.Scan(&k.Name)
+		if err != nil {
+			return nil, err
+		}
+		tmp.PushBack(k)
+	}
+
+	ret := make([]rdbms.Unique, tmp.Len())
+	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
+		c := x.Value.(rdbms.Unique)
+		rows, err = db.Query(
+			`select column_name, false as Is_descending
+			from information_schema.constraint_column_usage 
+			where constraint_name = $1`, c.Name)
+		if err != nil {
+			return nil, err
+		}
+		c.Columns, err = rdbms.HelperMapCColumns(rows)
+		if err != nil {
+			return nil, err
+		}
+		ret[i] = c
+	}
+
+	return ret, nil
+}
+
+func GetAllCheck(db *sql.DB, tableName string) ([]rdbms.Check, error) {
+
+	var rows *sql.Rows
+	var err error
+
+	rows, err = db.Query(
+		`select tc.constraint_name, cc.check_clause
+		from information_schema.table_constraints tc
+		inner join information_schema.check_constraints cc 
+			on cc.constraint_name = tc.constraint_name
+		where tc.table_name = $1 and tc.constraint_type='CHECK' and exists (
+			select 1 from information_schema.constraint_column_usage where constraint_name = cc.constraint_name
+		)`, tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := rdbms.HelperMapChecks(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func RemoteGetAllFK(db *sql.DB, tableName string) ([]rdbms.ForeignKey, error) {
+
+	var rows *sql.Rows
+	var err error
+
+	rows, err = db.Query(
 		`select tc.constraint_name, tf.table_name as ref_table 
 		from information_schema.table_constraints AS tc 
 		join lateral ( select * from information_schema.constraint_column_usage ccu where ccu.constraint_name = tc.constraint_name limit 1) tf on true
@@ -307,7 +303,7 @@ func RemoteGetAllFK(r *Remote, tableName string) ([]ForeignKey, error) {
 	tmp := list.New()
 
 	for rows.Next() {
-		var k ForeignKey
+		var k rdbms.ForeignKey
 		err := rows.Scan(&k.Name, &k.Ref_table)
 		if err != nil {
 			return nil, err
@@ -315,11 +311,11 @@ func RemoteGetAllFK(r *Remote, tableName string) ([]ForeignKey, error) {
 		tmp.PushBack(k)
 	}
 
-	ret := make([]ForeignKey, tmp.Len())
+	ret := make([]rdbms.ForeignKey, tmp.Len())
 	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
-		fk := x.Value.(ForeignKey)
+		fk := x.Value.(rdbms.ForeignKey)
 
-		rows, err = r.conn.Query(
+		rows, err = db.Query(
 			`select column_name, false as is_descending
 			from information_schema.key_column_usage
 			where constraint_name = $1`, fk.Name)
@@ -327,19 +323,19 @@ func RemoteGetAllFK(r *Remote, tableName string) ([]ForeignKey, error) {
 			return nil, err
 		}
 
-		fk.Columns, err = MapCColumns(rows)
+		fk.Columns, err = rdbms.HelperMapCColumns(rows)
 		if err != nil {
 			return nil, err
 		}
 
-		rows, err = r.conn.Query(
+		rows, err = db.Query(
 			`select column_name, false as is_descending
 			from information_schema.constraint_column_usage
 			where constraint_name = $1`, fk.Name)
 		if err != nil {
 			return nil, err
 		}
-		fk.Ref_columns, err = MapCColumns(rows)
+		fk.Ref_columns, err = rdbms.HelperMapCColumns(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -349,51 +345,11 @@ func RemoteGetAllFK(r *Remote, tableName string) ([]ForeignKey, error) {
 	return ret, nil
 }
 
-func RemoteGetAllPK(r *Remote, tableName string) (*PrimaryKey, error) {
+func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
 
 	var rows *sql.Rows
 	var err error
-
-	rows, err = r.conn.Query(
-		`select constraint_name 
-		from information_schema.table_constraints 
-		where constraint_type ='PRIMARY KEY' and table_name = $1`, tableName)
-	if err != nil {
-		return nil, err
-	}
-
-	if !rows.Next() {
-		return nil, nil
-	}
-
-	var ret PrimaryKey
-	if err = rows.Scan(&ret.Name); err != nil {
-		return nil, err
-	}
-
-	rows, err = r.conn.Query(
-		`select column_name, false as is_descending
-		from information_schema.key_column_usage 
-		where constraint_name = $1`, ret.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	cols, err := MapCColumns(rows)
-	if err != nil {
-		return nil, err
-	}
-
-	ret.Columns = cols
-
-	return &ret, nil
-}
-
-func RemoteGetAllIx(r *Remote, tableName string) ([]Index, error) {
-
-	var rows *sql.Rows
-	var err error
-	rows, err = r.conn.Query(
+	rows, err = db.Query(
 		`select
 			i.relname as index_name,
 			ix.indisunique as is_unique,
@@ -417,7 +373,7 @@ func RemoteGetAllIx(r *Remote, tableName string) ([]Index, error) {
 	tmp := list.New()
 
 	for rows.Next() {
-		var k Index
+		var k rdbms.Index
 		err := rows.Scan(&k.Name, &k.Is_unique, &k.Type)
 		if err != nil {
 			panic(err)
@@ -425,11 +381,11 @@ func RemoteGetAllIx(r *Remote, tableName string) ([]Index, error) {
 		tmp.PushBack(k)
 	}
 
-	ret := make([]Index, tmp.Len())
+	ret := make([]rdbms.Index, tmp.Len())
 	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
-		c := x.Value.(Index)
+		c := x.Value.(rdbms.Index)
 
-		rows, err = r.conn.Query(
+		rows, err = db.Query(
 			`select
 				column_name,
 				case when indoption[unn-1] = 3 then true else false end as is_descending,
@@ -464,7 +420,7 @@ func RemoteGetAllIx(r *Remote, tableName string) ([]Index, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.Columns, err = MapIxColumns(rows)
+		c.Columns, err = rdbms.HelperMapIxColumns(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -474,9 +430,36 @@ func RemoteGetAllIx(r *Remote, tableName string) ([]Index, error) {
 	return ret, nil
 }
 
-func RemoteGetTableDef(remote *Remote, tableName string) (*Table, error) {
+func REM_GetTypedTableInfo(db *sql.DB, t *rdbms.Table) error {
 
-	cols, err := RemoteGetAllColumn(remote, tableName)
+	var err error
+	var rows *sql.Rows
+
+	q :=
+		`select 
+		user_defined_type_name 
+	from information_schema.tables where table_name = $1`
+
+	if rows, err = db.Query(q, t.Name); err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var ptname *string
+		if err = rows.Scan(&ptname); err != nil {
+			return err
+		}
+		if ptname != nil {
+			t.Type = *ptname
+		}
+	}
+
+	return nil
+}
+
+func RemoteGetTableDef(db *sql.DB, tableName string) (*rdbms.Table, error) {
+
+	cols, err := RemoteGetAllColumn(db, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -485,32 +468,32 @@ func RemoteGetTableDef(remote *Remote, tableName string) (*Table, error) {
 		return nil, nil
 	}
 
-	pk, err := RemoteGetAllPK(remote, tableName)
+	pk, err := RemoteGetAllPK(db, tableName)
 	if err != nil {
 		return nil, err
 	}
 
-	fks, err := RemoteGetAllFK(remote, tableName)
+	fks, err := RemoteGetAllFK(db, tableName)
 	if err != nil {
 		return nil, err
 	}
 
-	uq, err := RemoteGetAllUnique(remote, tableName)
+	uq, err := RemoteGetAllUnique(db, tableName)
 	if err != nil {
 		return nil, err
 	}
 
-	c, err := RemoteGetAllCheck(remote, tableName)
+	c, err := GetAllCheck(db, tableName)
 	if err != nil {
 		return nil, err
 	}
 
-	ix, err := RemoteGetAllIx(remote, tableName)
+	ix, err := RemoteGetAllIx(db, tableName)
 	if err != nil {
 		return nil, err
 	}
 
-	var tbl Table
+	var tbl rdbms.Table
 	tbl.Check = c
 	tbl.Unique = uq
 	tbl.Name = tableName
@@ -519,21 +502,27 @@ func RemoteGetTableDef(remote *Remote, tableName string) (*Table, error) {
 	tbl.Primary = pk
 	tbl.Indexes = ix
 
-	if remote.tp == Pgsql {
-		if err = PgsqlGetTypedTableInfo(remote, &tbl); err != nil {
-			return nil, err
-		}
+	if err = REM_GetTypedTableInfo(db, &tbl); err != nil {
+		return nil, err
 	}
 
 	return &tbl, nil
 }
 
-func RemoteGetTypes(r *Remote, localTypes []Type) ([]Type, error) {
+func REM_GetMatchTables(db *sql.DB, userTables []rdbms.Table) ([]rdbms.Table, error) {
 
-	if r.tp != Pgsql {
-		// not implemented to mssql yet
-		return nil, nil
+	tbls := make([]rdbms.Table, len(userTables))
+
+	for i := 0; i < len(userTables); i++ {
+		tbl, err := RemoteGetTableDef(db, userTables[i].Name)
+		if err != nil {
+			return nil, err
+		}
+		if tbl == nil {
+			continue
+		}
+		tbls[i] = *tbl
 	}
 
-	return PgsqlGetTypes(r, localTypes)
+	return tbls, nil
 }

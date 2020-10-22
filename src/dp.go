@@ -1,8 +1,9 @@
 package main
 
 import (
+	"database-project/rdbms"
+
 	_ "github.com/denisenkom/go-mssqldb"
-	"github.com/kzaag/database-project/rdbms"
 	_ "github.com/lib/pq"
 )
 
@@ -396,7 +397,7 @@ import (
 // }
 
 func main() {
-	_ = rdbms.RdbmsTableStore{}
+	_ = rdbms.CM_CompType
 	// err := DpProgram()
 	// if err != nil {
 	// 	fmt.Println(err)

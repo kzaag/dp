@@ -41,7 +41,7 @@ func ParserValidateIndex(ixs []Index) error {
 	return nil
 }
 
-func __ParserIsDirectory(path string) (bool, error) {
+func ParserIsDirectory(path string) (bool, error) {
 	fs, err := os.Stat(path)
 	if err != nil {
 		return false, err
@@ -69,7 +69,7 @@ func __ParserElevateErrorColumn(tname string, err error) error {
 	return fmt.Errorf("in column %s: %s", tname, err.Error())
 }
 
-func ParserValidateColumn(ctx IRdbmsDef, c []Column) error {
+func ParserValidateColumn(ctx *StmtCtx, c []Column) error {
 	if len(c) == 0 {
 		return nil
 	}
@@ -90,19 +90,6 @@ func ParserValidateColumn(ctx IRdbmsDef, c []Column) error {
 	}
 	return nil
 }
-
-// func __ParserValidateStrArray(c []string) error {
-// 	if len(c) == 0 {
-// 		return fmt.Errorf("no values specified")
-// 	}
-// 	for i := 0; i < len(c); i++ {
-// 		col := c[i]
-// 		if col == "" {
-// 			return fmt.Errorf("invalid value at index %d", i)
-// 		}
-// 	}
-// 	return nil
-// }
 
 func ParserValidateCColumn(c []ConstraintColumn) error {
 	if c == nil {
@@ -186,7 +173,7 @@ func __ParserErrorTable(tname string, err error) error {
 	return fmt.Errorf("in table %s: %s", tname, err.Error())
 }
 
-func ParserValidateTables(ctx IRdbmsDef, tables []Table) error {
+func ParserValidateTables(ctx *StmtCtx, tables []Table) error {
 	if tables == nil {
 		return nil
 	}
@@ -218,7 +205,7 @@ func ParserValidateTables(ctx IRdbmsDef, tables []Table) error {
 	return nil
 }
 
-func ParserGetTablesInDir(ctx IRdbmsDef, dir string) ([]Table, error) {
+func ParserGetTablesInDir(ctx *StmtCtx, dir string) ([]Table, error) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -228,7 +215,7 @@ func ParserGetTablesInDir(ctx IRdbmsDef, dir string) ([]Table, error) {
 	allowedLen := 0
 	for i := 0; i < length; i++ {
 		name := path.Join(dir, files[i].Name())
-		isDir, err := __ParserIsDirectory(name)
+		isDir, err := ParserIsDirectory(name)
 		if err != nil {
 			return nil, err
 		}

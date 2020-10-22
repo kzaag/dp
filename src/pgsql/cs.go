@@ -4,24 +4,12 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/kzaag/database-project/src/config"
+	"database-project/config"
+
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-func AlterTypeColumnStr(r *Remote, typename string, sc *Column, c *Column) string {
-
-	ret := ""
-
-	if sc.FullType != c.FullType {
-		ret += fmt.Sprintf("ALTER TYPE %s ALTER ATTRIBUTE %s SET DATA TYPE %s CASCADE", typename, c.Name, c.FullType)
-	}
-
-	ret += ";\n"
-
-	return ret
-}
-
-func CreateCSFromConfig(auth *config.Auth) (string, error) {
+func CSCreateFromConfig(auth *config.Auth) (string, error) {
 	if auth.Name == "" {
 		return "", fmt.Errorf("Anonymous auth record")
 	}

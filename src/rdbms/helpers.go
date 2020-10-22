@@ -24,35 +24,6 @@ func HelperMapChecks(r *sql.Rows) ([]Check, error) {
 	return cs, nil
 }
 
-func HelperMapColumns(r *sql.Rows) ([]Column, error) {
-
-	buff := list.New()
-	for r.Next() {
-		var el Column
-		err := r.Scan(
-			&el.Name,
-			&el.Type,
-			&el.Length,
-			&el.Precision,
-			&el.Scale,
-			&el.Nullable,
-			&el.Identity)
-		if err != nil {
-			return nil, err
-		}
-		//el.FullType = ColumnT
-		//el.SetFullType(remote)
-		buff.PushBack(el)
-	}
-
-	var ret = make([]Column, buff.Len())
-	for i, x := 0, buff.Front(); i < buff.Len(); i, x = i+1, x.Next() {
-		ret[i] = x.Value.(Column)
-	}
-
-	return ret, nil
-}
-
 func HelperMapCColumns(r *sql.Rows) ([]ConstraintColumn, error) {
 	tmp := list.New()
 

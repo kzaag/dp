@@ -9,12 +9,12 @@ import (
 	generating differential script based on local vs rem schema
 */
 
-// func (m *SqlMergeCtx) SetLocalSchema(t []Table, tp []Type) {
+// func (m *MergeCtx) SetLocalSchema(t []Table, tp []Type) {
 // 	m.localTables = t
 // 	m.localTypes = tp
 // }
 
-// func (m *SqlMergeCtx) SetRemoteSchema(t []Table, tp []Type) {
+// func (m *MergeCtx) SetRemoteSchema(t []Table, tp []Type) {
 // 	m.remTables = t
 // 	m.remTypes = tp
 // }
@@ -30,7 +30,7 @@ const (
 /*
 	Golang, why dont you implement unions, Whyyyyyy...!
 */
-type SqlMergeDropBuff struct {
+type MergeDropCtx struct {
 	Table   string
 	Type    uint
 	Foreign *ForeignKey
@@ -40,63 +40,63 @@ type SqlMergeDropBuff struct {
 	Column  *Column
 }
 
-type RdbmsScriptStore struct {
-	create *string
-	drop   *string
+type MergeScriptCtx struct {
+	Create *string
+	Drop   *string
 }
 
-type RdbmsTableStore struct {
-	remoteTables []Table
-	localTables  []Table
+type MergeTableCtx struct {
+	RemoteTables []Table
+	LocalTables  []Table
 }
 
-func SqlMergeNewDropFk(tableName string, fk *ForeignKey) SqlMergeDropBuff {
-	return SqlMergeDropBuff{tableName, DC_TYPE_FK, fk, nil, nil, nil, nil}
+func MergeDropNewFK(tableName string, fk *ForeignKey) MergeDropCtx {
+	return MergeDropCtx{tableName, DC_TYPE_FK, fk, nil, nil, nil, nil}
 }
 
-func SqlMergeNewDropPk(tableName string, pk *PrimaryKey) SqlMergeDropBuff {
-	return SqlMergeDropBuff{tableName, DC_TYPE_PK, nil, pk, nil, nil, nil}
+func MergeDropNewPK(tableName string, pk *PrimaryKey) MergeDropCtx {
+	return MergeDropCtx{tableName, DC_TYPE_PK, nil, pk, nil, nil, nil}
 }
 
-func SqlMergeNewDropUq(tablename string, u *Unique) SqlMergeDropBuff {
-	return SqlMergeDropBuff{tablename, DC_TYPE_UQ, nil, nil, u, nil, nil}
+func MergeDropNewUnique(tablename string, u *Unique) MergeDropCtx {
+	return MergeDropCtx{tablename, DC_TYPE_UQ, nil, nil, u, nil, nil}
 }
 
 // func MergeNewDropCh(tablename string, c *Check) MergeDropBuff {
 // 	return MergeDropBuff{tablename, DC_TYPE_CH, nil, nil, nil, c, nil}
 // }
 
-func SqlMergeNewDropC(tablename string, c *Column) SqlMergeDropBuff {
-	return SqlMergeDropBuff{tablename, DC_TYPE_C, nil, nil, nil, nil, c}
+func MergeDropNewC(tablename string, c *Column) MergeDropCtx {
+	return MergeDropCtx{tablename, DC_TYPE_C, nil, nil, nil, nil, c}
 }
 
-func (d SqlMergeDropBuff) IsPk() bool {
+func (d MergeDropCtx) IsPk() bool {
 	return d.Type == DC_TYPE_PK
 }
 
-func (d SqlMergeDropBuff) IsFk() bool {
+func (d MergeDropCtx) IsFk() bool {
 	return d.Type == DC_TYPE_FK
 }
 
-func (d SqlMergeDropBuff) IsUq() bool {
+func (d MergeDropCtx) IsUq() bool {
 	return d.Type == DC_TYPE_UQ
 }
 
-func (d SqlMergeDropBuff) IsCh() bool {
+func (d MergeDropCtx) IsCh() bool {
 	return d.Type == DC_TYPE_CH
 }
 
-func (d SqlMergeDropBuff) IsC() bool {
+func (d MergeDropCtx) IsC() bool {
 	return d.Type == DC_TYPE_C
 }
 
-func SqlMergeAddOperation(dest *string, elem string) {
+func MergeAddOperation(dest *string, elem string) {
 	if !strings.Contains(*dest, elem) {
 		*dest += elem
 	}
 }
 
-func SqlMergeCompareIColumn(c1 []IndexColumn, c2 []IndexColumn) bool {
+func MergeCompareIColumn(c1 []IndexColumn, c2 []IndexColumn) bool {
 
 	if c1 == nil || c2 == nil {
 		return false
@@ -111,7 +111,10 @@ func SqlMergeCompareIColumn(c1 []IndexColumn, c2 []IndexColumn) bool {
 		for j := 0; j < len(c2); j++ {
 			x := c1[i]
 			y := c2[j]
-			if x.Name == y.Name && x.Is_descending == y.Is_descending && x.Is_Included_column == y.Is_Included_column {
+			if x.Name == y.Name &&
+				x.Is_descending == y.Is_descending &&
+				x.Is_Included_column == y.Is_Included_column {
+
 				found = true
 				break
 			}
@@ -125,7 +128,7 @@ func SqlMergeCompareIColumn(c1 []IndexColumn, c2 []IndexColumn) bool {
 	return true
 }
 
-func SqlMergeCompareCColumn(c1 []ConstraintColumn, c2 []ConstraintColumn) bool {
+func MergeCompareCColumn(c1 []ConstraintColumn, c2 []ConstraintColumn) bool {
 
 	if c1 == nil || c2 == nil {
 		return false
@@ -154,18 +157,18 @@ func SqlMergeCompareCColumn(c1 []ConstraintColumn, c2 []ConstraintColumn) bool {
 	return true
 }
 
-func SqlMergeCompareColumn(m IRdbmsDef, c1 *Column, c2 *Column) bool {
+func MergeCompareColumn(m *StmtCtx, c1 *Column, c2 *Column) bool {
 	sc1 := m.AddColumn("", c1)
 	sc2 := m.AddColumn("", c2)
 	return sc1 == sc2
 }
 
-func SqlMergeColumns(
-	rem IRdbmsDef,
+func MergeColumns(
+	rem *StmtCtx,
 	localTable *Table,
 	remTable *Table,
-	ts *RdbmsTableStore,
-	ss *RdbmsScriptStore) {
+	ts *MergeTableCtx,
+	ss *MergeScriptCtx) {
 
 	if remTable == nil {
 		return
@@ -190,30 +193,30 @@ func SqlMergeColumns(
 
 		if index < 0 {
 
-			SqlMergeAddOperation(ss.create, rem.AddColumn(localTable.Name, uc))
+			MergeAddOperation(ss.Create, rem.AddColumn(localTable.Name, uc))
 
 		} else {
 			dc := &remTable.Columns[index]
 			matchedIxs.PushBack(index)
 
-			if SqlMergeCompareColumn(rem, uc, dc) {
+			if MergeCompareColumn(rem, uc, dc) {
 				continue
 			}
 
-			drefs := SqlMergeDropColRefs(rem, dc, remTable, ts.remoteTables, ss.drop)
+			drefs := MergeDropColRefs(rem, dc, remTable, ts.RemoteTables, ss.Drop)
 
 			if dc.Identity != uc.Identity {
 
-				SqlMergeAddOperation(ss.drop, rem.DropColumn(localTable.Name, dc))
-				SqlMergeAddOperation(ss.create, rem.AddColumn(localTable.Name, uc))
+				MergeAddOperation(ss.Drop, rem.DropColumn(localTable.Name, dc))
+				MergeAddOperation(ss.Create, rem.AddColumn(localTable.Name, uc))
 
 			} else {
 
-				SqlMergeAddOperation(ss.create, rem.AlterColumn(localTable.Name, dc, uc))
+				MergeAddOperation(ss.Create, rem.AlterColumn(localTable.Name, dc, uc))
 
 			}
 
-			SqlMergeRecreateColRefs(rem, ts.localTables, ss.create, drefs)
+			MergeDropRecreateColRefs(rem, ts.LocalTables, ss.Create, drefs)
 		}
 	}
 
@@ -231,18 +234,18 @@ func SqlMergeColumns(
 
 		dc := &remTable.Columns[i]
 
-		drefs := SqlMergeDropColRefs(rem, dc, remTable, ts.remoteTables, ss.drop)
+		drefs := MergeDropColRefs(rem, dc, remTable, ts.RemoteTables, ss.Drop)
 
-		SqlMergeAddOperation(ss.drop, rem.DropColumn(localTable.Name, dc))
+		MergeAddOperation(ss.Drop, rem.DropColumn(localTable.Name, dc))
 
-		SqlMergeRecreateColRefs(rem, ts.localTables, ss.create, drefs)
+		MergeDropRecreateColRefs(rem, ts.LocalTables, ss.Create, drefs)
 	}
 }
 
-func SqlMergeIx(
-	mrg IRdbmsDef,
+func MergeIx(
+	mrg *StmtCtx,
 	localTable *Table, remTable *Table,
-	ss *RdbmsScriptStore) {
+	ss *MergeScriptCtx) {
 
 	matchedIxs := list.New()
 	if localTable.Indexes != nil && len(localTable.Indexes) > 0 {
@@ -259,15 +262,15 @@ func SqlMergeIx(
 
 			if index < 0 {
 
-				SqlMergeAddOperation(ss.create, mrg.AddIndex(localTable.Name, userUq))
+				MergeAddOperation(ss.Create, mrg.AddIndex(localTable.Name, userUq))
 
 			} else {
 				matchedIxs.PushBack(index)
 
-				if !SqlMergeCompareIColumn(userUq.Columns, remTable.Indexes[index].Columns) {
+				if !MergeCompareIColumn(userUq.Columns, remTable.Indexes[index].Columns) {
 
-					SqlMergeAddOperation(ss.drop, mrg.DropIndex(localTable.Name, &remTable.Indexes[index]))
-					SqlMergeAddOperation(ss.create, mrg.AddIndex(localTable.Name, userUq))
+					MergeAddOperation(ss.Drop, mrg.DropIndex(localTable.Name, &remTable.Indexes[index]))
+					MergeAddOperation(ss.Create, mrg.AddIndex(localTable.Name, userUq))
 
 				}
 			}
@@ -291,14 +294,14 @@ func SqlMergeIx(
 			continue
 		}
 
-		SqlMergeAddOperation(ss.drop, mrg.DropIndex(localTable.Name, &remTable.Indexes[i]))
+		MergeAddOperation(ss.Drop, mrg.DropIndex(localTable.Name, &remTable.Indexes[i]))
 	}
 }
 
-func SqlMergeUnique(
-	mrg IRdbmsDef,
+func MergeUnique(
+	mrg *StmtCtx,
 	localTable *Table, remTable *Table,
-	ss *RdbmsScriptStore) {
+	ss *MergeScriptCtx) {
 
 	matchedIxs := list.New()
 	if localTable.Unique != nil && len(localTable.Unique) > 0 {
@@ -315,18 +318,18 @@ func SqlMergeUnique(
 
 			if index < 0 {
 
-				SqlMergeAddOperation(ss.create, mrg.AddUnique(localTable.Name, userUq))
+				MergeAddOperation(ss.Create, mrg.AddUnique(localTable.Name, userUq))
 
 			} else {
 				matchedIxs.PushBack(index)
 
-				if !SqlMergeCompareCColumn(userUq.Columns, remTable.Unique[index].Columns) {
+				if !MergeCompareCColumn(userUq.Columns, remTable.Unique[index].Columns) {
 
-					SqlMergeAddOperation(
-						ss.drop,
+					MergeAddOperation(
+						ss.Drop,
 						mrg.DropConstraint(localTable.Name, &remTable.Unique[index].Constraint))
-					SqlMergeAddOperation(
-						ss.create, mrg.AddUnique(localTable.Name, userUq))
+					MergeAddOperation(
+						ss.Create, mrg.AddUnique(localTable.Name, userUq))
 				}
 			}
 		}
@@ -348,14 +351,14 @@ func SqlMergeUnique(
 			continue
 		}
 
-		SqlMergeAddOperation(ss.drop, mrg.DropConstraint(localTable.Name, &remTable.Unique[i].Constraint))
+		MergeAddOperation(ss.Drop, mrg.DropConstraint(localTable.Name, &remTable.Unique[i].Constraint))
 	}
 }
 
-func SqlMergeCheck(
-	mrg IRdbmsDef,
+func MergeCheck(
+	mrg *StmtCtx,
 	localTable *Table, remTable *Table,
-	ss *RdbmsScriptStore) {
+	ss *MergeScriptCtx) {
 
 	matchedIxs := list.New()
 	if localTable.Check != nil && len(localTable.Check) > 0 {
@@ -372,17 +375,17 @@ func SqlMergeCheck(
 
 			if index < 0 {
 
-				SqlMergeAddOperation(ss.create, mrg.AddCheck(localTable.Name, userC))
+				MergeAddOperation(ss.Create, mrg.AddCheck(localTable.Name, userC))
 
 			} else {
 				matchedIxs.PushBack(index)
 				if userC.Def != remTable.Check[i].Def {
 
-					SqlMergeAddOperation(
-						ss.drop,
+					MergeAddOperation(
+						ss.Drop,
 						mrg.DropConstraint(localTable.Name, &Constraint{remTable.Check[index].Name, nil}))
-					SqlMergeAddOperation(
-						ss.create, mrg.AddCheck(localTable.Name, userC))
+					MergeAddOperation(
+						ss.Create, mrg.AddCheck(localTable.Name, userC))
 				}
 			}
 		}
@@ -404,14 +407,14 @@ func SqlMergeCheck(
 			continue
 		}
 		c := &Constraint{remTable.Check[i].Name, nil}
-		SqlMergeAddOperation(ss.drop, mrg.DropConstraint(localTable.Name, c))
+		MergeAddOperation(ss.Drop, mrg.DropConstraint(localTable.Name, c))
 	}
 }
 
 func MergeFK(
-	mrg IRdbmsDef,
+	mrg *StmtCtx,
 	localTable *Table, remTable *Table,
-	ss *RdbmsScriptStore) {
+	ss *MergeScriptCtx) {
 
 	userFKs := localTable.Foreign
 	matchedIxs := list.New()
@@ -430,19 +433,19 @@ func MergeFK(
 
 			if index < 0 {
 
-				SqlMergeAddOperation(ss.create, mrg.AddFK(localTable.Name, userFK))
+				MergeAddOperation(ss.Create, mrg.AddFK(localTable.Name, userFK))
 
 			} else {
 				matchedIxs.PushBack(index)
 
-				ceq := SqlMergeCompareCColumn(userFK.Columns, remTable.Foreign[index].Columns)
-				rceq := SqlMergeCompareCColumn(userFK.Ref_columns, remTable.Foreign[index].Ref_columns)
+				ceq := MergeCompareCColumn(userFK.Columns, remTable.Foreign[index].Columns)
+				rceq := MergeCompareCColumn(userFK.Ref_columns, remTable.Foreign[index].Ref_columns)
 
 				if !ceq || !rceq {
-					SqlMergeAddOperation(
-						ss.drop,
+					MergeAddOperation(
+						ss.Drop,
 						mrg.DropConstraint(localTable.Name, &remTable.Foreign[index].Constraint))
-					SqlMergeAddOperation(ss.create, mrg.AddFK(localTable.Name, userFK))
+					MergeAddOperation(ss.Create, mrg.AddFK(localTable.Name, userFK))
 				}
 			}
 		}
@@ -465,31 +468,31 @@ func MergeFK(
 			continue
 		}
 
-		SqlMergeAddOperation(
-			ss.drop,
+		MergeAddOperation(
+			ss.Drop,
 			mrg.DropConstraint(localTable.Name, &remTable.Foreign[i].Constraint))
 	}
 }
 
-func SqlMergeDropColRefs(
-	m IRdbmsDef,
+func MergeDropColRefs(
+	m *StmtCtx,
 	col *Column,
 	table *Table,
 	tables []Table,
-	drop *string) []SqlMergeDropBuff {
+	drop *string) []MergeDropCtx {
 
 	list := list.New()
 	if table.Primary != nil && table.Primary.Columns != nil {
 		for i := 0; i < len(table.Primary.Columns); i++ {
 			c := table.Primary.Columns[i]
 			if c.Name == col.Name {
-				bf := SqlMergeDropPkRefs(m, table.Name, tables, drop)
+				bf := MergeDropPkRefs(m, table.Name, tables, drop)
 				for i := 0; i < len(bf); i++ {
 					list.PushBack(bf[i])
 				}
-				SqlMergeAddOperation(
+				MergeAddOperation(
 					drop, m.DropConstraint(table.Name, &table.Primary.Constraint))
-				list.PushBack(SqlMergeNewDropPk(table.Name, table.Primary))
+				list.PushBack(MergeDropNewPK(table.Name, table.Primary))
 			}
 		}
 	}
@@ -503,26 +506,26 @@ func SqlMergeDropColRefs(
 			for j := 0; j < len(c.Columns); j++ {
 				cc := c.Columns[j]
 				if cc.Name == col.Name {
-					SqlMergeAddOperation(drop, m.DropConstraint(table.Name, &c.Constraint))
-					list.PushBack(SqlMergeNewDropUq(table.Name, &c))
+					MergeAddOperation(drop, m.DropConstraint(table.Name, &c.Constraint))
+					list.PushBack(MergeDropNewUnique(table.Name, &c))
 				}
 			}
 		}
 	}
 
-	ret := make([]SqlMergeDropBuff, list.Len())
+	ret := make([]MergeDropCtx, list.Len())
 	for i, x := 0, list.Front(); x != nil; i, x = i+1, x.Next() {
-		ret[i] = x.Value.(SqlMergeDropBuff)
+		ret[i] = x.Value.(MergeDropCtx)
 	}
 
 	return ret
 }
 
-func SqlMergeRecreateDropBuff(
-	m IRdbmsDef,
-	dc []SqlMergeDropBuff,
-	ss *RdbmsScriptStore,
-	ts *RdbmsTableStore) {
+func MergeDropRecreate(
+	m *StmtCtx,
+	dc []MergeDropCtx,
+	ss *MergeScriptCtx,
+	ts *MergeTableCtx) {
 
 	if dc == nil {
 		return
@@ -530,9 +533,9 @@ func SqlMergeRecreateDropBuff(
 
 	for i := len(dc) - 1; i >= 0; i-- {
 		dropBuff := dc[i]
-		for j := 0; j < len(ts.localTables); j++ {
+		for j := 0; j < len(ts.LocalTables); j++ {
 
-			table := &ts.localTables[j]
+			table := &ts.LocalTables[j]
 
 			if table.Name != dropBuff.Table {
 				continue
@@ -546,7 +549,7 @@ func SqlMergeRecreateDropBuff(
 				for z := 0; z < len(table.Foreign); z++ {
 					fk := &table.Foreign[z]
 					if fk.Name == dropBuff.Foreign.Name {
-						SqlMergeAddOperation(ss.create, m.AddFK(table.Name, fk))
+						MergeAddOperation(ss.Create, m.AddFK(table.Name, fk))
 					}
 				}
 			case DC_TYPE_PK:
@@ -555,7 +558,7 @@ func SqlMergeRecreateDropBuff(
 				}
 				pk := table.Primary
 				if pk.Name == dropBuff.Primary.Name {
-					SqlMergeAddOperation(ss.create, m.AddPK(table.Name, pk))
+					MergeAddOperation(ss.Create, m.AddPK(table.Name, pk))
 				}
 			case DC_TYPE_UQ:
 				if table.Unique == nil {
@@ -565,14 +568,14 @@ func SqlMergeRecreateDropBuff(
 				for z := 0; z < len(u); z++ {
 					uu := &u[z]
 					if uu.Name == dropBuff.Unique.Name {
-						SqlMergeAddOperation(ss.create, m.AddUnique(table.Name, uu))
+						MergeAddOperation(ss.Create, m.AddUnique(table.Name, uu))
 					}
 				}
 			case DC_TYPE_C:
 				for z := 0; z < len(table.Columns); z++ {
 					c := &table.Columns[z]
 					if c.Name == dropBuff.Column.Name {
-						SqlMergeAddOperation(ss.create, m.AddColumn(table.Name, c))
+						MergeAddOperation(ss.Create, m.AddColumn(table.Name, c))
 					}
 				}
 			}
@@ -581,11 +584,11 @@ func SqlMergeRecreateDropBuff(
 }
 
 // Obsolete : this method will be removed
-func SqlMergeRecreateColRefs(
-	m IRdbmsDef,
+func MergeDropRecreateColRefs(
+	m *StmtCtx,
 	tables []Table,
 	create *string,
-	dc []SqlMergeDropBuff) {
+	dc []MergeDropCtx) {
 
 	if dc == nil {
 		return
@@ -603,7 +606,7 @@ func SqlMergeRecreateColRefs(
 					for z := 0; z < len(table.Foreign); z++ {
 						fk := table.Foreign[z]
 						if fk.Name == dropBuff.Foreign.Name {
-							SqlMergeAddOperation(create, m.AddFK(table.Name, &fk))
+							MergeAddOperation(create, m.AddFK(table.Name, &fk))
 						}
 					}
 				}
@@ -614,7 +617,7 @@ func SqlMergeRecreateColRefs(
 				if table.Primary != nil {
 					pk := table.Primary
 					if pk.Name == dropBuff.Primary.Name {
-						SqlMergeAddOperation(create, m.AddPK(table.Name, pk))
+						MergeAddOperation(create, m.AddPK(table.Name, pk))
 					}
 				}
 				continue
@@ -626,7 +629,7 @@ func SqlMergeRecreateColRefs(
 					for z := 0; z < len(u); z++ {
 						uu := u[z]
 						if uu.Name == dropBuff.Unique.Name {
-							SqlMergeAddOperation(create, m.AddUnique(table.Name, &uu))
+							MergeAddOperation(create, m.AddUnique(table.Name, &uu))
 						}
 					}
 				}
@@ -635,11 +638,11 @@ func SqlMergeRecreateColRefs(
 	}
 }
 
-func SqlMergeDropPkRefs(
-	m IRdbmsDef,
+func MergeDropPkRefs(
+	m *StmtCtx,
 	tableName string,
 	tables []Table,
-	drop *string) []SqlMergeDropBuff {
+	drop *string) []MergeDropCtx {
 
 	var c int = 0
 	for i := 0; i < len(tables); i++ {
@@ -650,15 +653,15 @@ func SqlMergeDropPkRefs(
 			}
 		}
 	}
-	ret := make([]SqlMergeDropBuff, c)
+	ret := make([]MergeDropCtx, c)
 	lastix := 0
 
 	for i := 0; i < len(tables); i++ {
 		fks := tables[i].Foreign
 		for j := 0; j < len(fks); j++ {
 			if fks[j].Ref_table == tableName {
-				SqlMergeAddOperation(drop, m.DropConstraint(tables[i].Name, &fks[j].Constraint))
-				ret[lastix] = SqlMergeNewDropFk(tables[i].Name, &fks[j])
+				MergeAddOperation(drop, m.DropConstraint(tables[i].Name, &fks[j].Constraint))
+				ret[lastix] = MergeDropNewFK(tables[i].Name, &fks[j])
 				lastix++
 			}
 		}
@@ -667,11 +670,11 @@ func SqlMergeDropPkRefs(
 	return ret
 }
 
-func SqlMergeRecreatePkRefs(
-	m IRdbmsDef,
+func MergeDropRecreatePkRefs(
+	m *StmtCtx,
 	tables []Table,
 	create *string,
-	dc []SqlMergeDropBuff) {
+	dc []MergeDropCtx) {
 
 	if dc == nil {
 		return
@@ -684,7 +687,7 @@ func SqlMergeRecreatePkRefs(
 				for z := 0; z < len(tables[j].Foreign); z++ {
 					fk := tables[j].Foreign[z]
 					if fk.Name == droppedC.Foreign.Name {
-						SqlMergeAddOperation(create, m.AddFK(tables[j].Name, &fk))
+						MergeAddOperation(create, m.AddFK(tables[j].Name, &fk))
 					}
 				}
 			}
@@ -692,11 +695,11 @@ func SqlMergeRecreatePkRefs(
 	}
 }
 
-func SqlMergePrimary(
-	mrg IRdbmsDef,
+func MergePrimary(
+	mrg *StmtCtx,
 	localTable *Table, remTable *Table,
-	ss *RdbmsScriptStore,
-	ts *RdbmsTableStore) {
+	ss *MergeScriptCtx,
+	ts *MergeTableCtx) {
 
 	userPK := localTable.Primary
 
@@ -707,35 +710,35 @@ func SqlMergePrimary(
 	tname := localTable.Name
 
 	if userPK != nil && (remTable == nil || remTable.Primary == nil) {
-		SqlMergeAddOperation(ss.create, mrg.AddPK(tname, userPK))
+		MergeAddOperation(ss.Create, mrg.AddPK(tname, userPK))
 		return
 	}
 
-	var droppedCs []SqlMergeDropBuff
+	var droppedCs []MergeDropCtx
 
 	if userPK == nil && (remTable != nil && remTable.Primary != nil) {
-		droppedCs = SqlMergeDropPkRefs(mrg, tname, ts.remoteTables, ss.drop)
+		droppedCs = MergeDropPkRefs(mrg, tname, ts.RemoteTables, ss.Drop)
 
-		SqlMergeAddOperation(
-			ss.drop, mrg.DropConstraint(tname, &remTable.Primary.Constraint))
-		SqlMergeRecreatePkRefs(mrg, ts.localTables, ss.create, droppedCs)
+		MergeAddOperation(
+			ss.Drop, mrg.DropConstraint(tname, &remTable.Primary.Constraint))
+		MergeDropRecreatePkRefs(mrg, ts.LocalTables, ss.Create, droppedCs)
 
 		return
 	}
 
-	eq := SqlMergeCompareCColumn(userPK.Columns, remTable.Primary.Columns)
+	eq := MergeCompareCColumn(userPK.Columns, remTable.Primary.Columns)
 
 	if userPK.Name != remTable.Primary.Name || !eq {
-		droppedCs = SqlMergeDropPkRefs(mrg, tname, ts.remoteTables, ss.drop)
+		droppedCs = MergeDropPkRefs(mrg, tname, ts.RemoteTables, ss.Drop)
 
-		SqlMergeAddOperation(ss.drop, mrg.DropConstraint(tname, &remTable.Primary.Constraint))
-		SqlMergeAddOperation(ss.create, mrg.AddPK(tname, userPK))
+		MergeAddOperation(ss.Drop, mrg.DropConstraint(tname, &remTable.Primary.Constraint))
+		MergeAddOperation(ss.Create, mrg.AddPK(tname, userPK))
 
-		SqlMergeRecreatePkRefs(mrg, ts.localTables, ss.create, droppedCs)
+		MergeDropRecreatePkRefs(mrg, ts.LocalTables, ss.Create, droppedCs)
 	}
 }
 
-func SqlMergeFindTable(name string, tables []Table) *Table {
+func MergeFindTable(name string, tables []Table) *Table {
 	var index int = -1
 	for j := 0; j < len(tables); j++ {
 		if tables[j].Name == name {

@@ -1,11 +1,11 @@
 package pgsql
 
 import (
-	"container/list"
+	"database-project/rdbms"
 	"database/sql"
 )
 
-func TExists(t *Type, localTypes []Type) bool {
+func HelperTypeExists(t *Type, localTypes []Type) bool {
 	for i := 0; i < len(localTypes); i++ {
 		if localTypes[i].Name == t.Name {
 			return true
@@ -14,11 +14,12 @@ func TExists(t *Type, localTypes []Type) bool {
 	return false
 }
 
-func MapColumns(r *sql.Rows) ([]Column, error) {
+func HelperMapColumns(r *sql.Rows) ([]rdbms.Column, error) {
 
-	buff := list.New()
+	var el rdbms.Column
+	ret := make([]rdbms.Column, 0, 10)
+
 	for r.Next() {
-		var el Column
 		err := r.Scan(
 			&el.Name,
 			&el.Type,
@@ -30,13 +31,9 @@ func MapColumns(r *sql.Rows) ([]Column, error) {
 		if err != nil {
 			return nil, err
 		}
-		el.FullType = ColumnTypeStr(el)
-		buff.PushBack(el)
-	}
 
-	var ret = make([]Column, buff.Len())
-	for i, x := 0, buff.Front(); i < buff.Len(); i, x = i+1, x.Next() {
-		ret[i] = x.Value.(Column)
+		el.FullType = StmtColumnType(&el)
+		ret = append(ret, el)
 	}
 
 	return ret, nil

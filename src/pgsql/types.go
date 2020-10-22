@@ -1,6 +1,6 @@
 package pgsql
 
-import "github.com/kzaag/database-project/src/sql"
+import "database-project/rdbms"
 
 const (
 	TT_Enum      string = "enum"
@@ -11,5 +11,5 @@ type Type struct {
 	Name    string
 	Type    string
 	Values  []string
-	Columns []sql.Column
+	Columns []rdbms.Column
 }
