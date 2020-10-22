@@ -45,7 +45,7 @@ func CSCreateFromConfig(auth *config.Auth) (string, error) {
 	}
 
 	return fmt.Sprintf(
-		"%s %s %s %s %s",
+		"%s %s %s %s",
 		host,
 		user,
 		password,

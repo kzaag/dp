@@ -98,7 +98,16 @@ func REM_GetComposite(db *sql.DB) ([]Type, error) {
 			var colname string
 			var coltype string
 			err := rows.Scan(&colname, &coltype)
-			c := rdbms.Column{colname, "", coltype, -1, -1, -1, false, false, rdbms.CM_CompType}
+			c := rdbms.Column{
+				Name:      colname,
+				Type:      "",
+				FullType:  coltype,
+				Length:    -1,
+				Precision: -1,
+				Scale:     -1,
+				Nullable:  false,
+				Identity:  false,
+				Meta:      rdbms.CM_CompType}
 			if err != nil {
 				return nil, err
 			}
