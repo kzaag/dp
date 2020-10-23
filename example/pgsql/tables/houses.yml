@@ -1,0 +1,20 @@
+name: houses
+columns:
+  - name: id
+    type: int
+    identity: true
+  - name: name
+    type: text
+  - name: user_id
+    type: int
+primary:
+  name: houses_pk
+  columns:
+    - name: id
+foreign:
+  - name: houses_users_fk
+    columns:
+      - name: user_id
+    ref_table: users
+    ref_columns:
+      - name: id

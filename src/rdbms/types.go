@@ -24,7 +24,7 @@ type Constraint struct {
 }
 
 type Unique struct {
-	Constraint
+	Constraint `yaml:",inline"`
 }
 
 type Check struct {
@@ -33,13 +33,13 @@ type Check struct {
 }
 
 type PrimaryKey struct {
-	Constraint
+	Constraint `yaml:",inline"`
 }
 
 type ForeignKey struct {
 	Ref_columns []ConstraintColumn
 	Ref_table   string
-	Constraint
+	Constraint  `yaml:",inline"`
 }
 
 type ColumnMeta int

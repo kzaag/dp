@@ -1,7 +1,10 @@
 package main
 
 import (
-	"database-project/rdbms"
+	"database-project/config"
+	"database-project/pgsql"
+	"fmt"
+	"os"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/lib/pq"
@@ -396,11 +399,46 @@ import (
 // 	return nil
 // }
 
-func main() {
-	_ = rdbms.CM_CompType
-	// err := DpProgram()
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	os.Exit(1)
+func DpProgram() error {
+	var c config.Data
+	var script string
+	var err error
+
+	args := ArgsCreate()
+
+	if err = config.CreateFromPath(&c, args.config); err != nil {
+		return err
+	}
+
+	_ = script
+
+	// if script, err = pgsql.EntryMergeScript(&c); err != nil {
+	// 	return err
 	// }
+
+	// fmt.Println(script)
+
+	var ectx map[string]*pgsql.ExecutionCtx
+
+	if ectx, err = pgsql.GetExecutionCtx(&c); err != nil {
+		return err
+	}
+
+	for k := range ectx {
+		fmt.Printf("%s: \n", k)
+		v := ectx[k]
+		for _, x := range v.Exec {
+			fmt.Printf("\t%s, %s\n", x.Type, x.Path)
+		}
+	}
+
+	return nil
+}
+
+func main() {
+	err := DpProgram()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }

@@ -35,51 +35,6 @@ func __StmtDefColumn(column *rdbms.Column) string {
 	return cs
 }
 
-// func AddTypeStr(t *rdbms.Type) string {
-
-// 	if remote.tp != Pgsql {
-// 		panic("not implemented")
-// 	}
-
-// 	ret := ""
-
-// 	ret += "CREATE TYPE " + t.Name + " AS"
-
-// 	switch t.Type {
-// 	case TT_Enum:
-
-// 		ret += " ENUM ("
-
-// 		for i := 0; i < len(t.Values); i++ {
-// 			if i > 0 {
-// 				ret += ","
-// 			}
-// 			ret += "'" + t.Values[i] + "'"
-// 		}
-
-// 		ret += ");\n"
-
-// 	case TT_Composite:
-
-// 		ret += " ("
-
-// 		for i := 0; i < len(t.Columns); i++ {
-// 			if i > 0 {
-// 				ret += ","
-// 			}
-// 			ret += RemoteTypeColumn(remote, &t.Columns[i])
-// 		}
-
-// 		ret += ");\n"
-// 	}
-
-// 	return ret
-// }
-
-// func DropTypeStr(t *rdbms.Type) string {
-// 	return "DROP TYPE " + t.Name + ";\n"
-// }
-
 // func OP_AlterColumn(parentName string, old *rdbms.Column, new *rdbms.Column) string {
 // 	if (new.Meta & CM_CompType) == CM_CompType {
 // 		return "ALTER TYPE " + typename + " DROP ATTRIBUTE " + c.Name + " CASCADE;\n"
@@ -349,6 +304,47 @@ func StmtColumnType(column *rdbms.Column) string {
 	return strings.ToUpper(cs)
 }
 
+func StmtAddType(t *Type) string {
+
+	ret := ""
+
+	ret += "CREATE TYPE " + t.Name + " AS"
+
+	switch t.Type {
+	case TT_Enum:
+
+		ret += " ENUM ("
+
+		for i := 0; i < len(t.Values); i++ {
+			if i > 0 {
+				ret += ","
+			}
+			ret += "'" + t.Values[i] + "'"
+		}
+
+		ret += ");\n"
+
+	case TT_Composite:
+
+		ret += " ("
+
+		for i := 0; i < len(t.Columns); i++ {
+			if i > 0 {
+				ret += ","
+			}
+			ret += StmtColumnType(&t.Columns[i])
+		}
+
+		ret += ");\n"
+	}
+
+	return ret
+}
+
+func StmtDropType(t *Type) string {
+	return "DROP TYPE " + t.Name + ";\n"
+}
+
 func StmtDropColumn(tablename string, c *rdbms.Column) string {
 	switch c.Meta {
 	case rdbms.CM_CompType:
@@ -396,24 +392,4 @@ func StmtAddColumn(tableName string, c *rdbms.Column) string {
 	}
 
 	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
-}
-
-func StmtDropConstraint(tableName string, c *rdbms.Constraint) string {
-	return rdbms.StmtDropConstraint(tableName, c)
-}
-
-func StmtAddUnique(tableName string, u *rdbms.Unique) string {
-	return rdbms.StmtAddUnique(tableName, u)
-}
-
-func StmtAddCheck(tableName string, c *rdbms.Check) string {
-	return rdbms.StmtAddCheck(tableName, c)
-}
-
-func StmtAddFK(tableName string, fk *rdbms.ForeignKey) string {
-	return rdbms.StmtAddFk(tableName, fk)
-}
-
-func StmtAddPK(tableName string, pk *rdbms.PrimaryKey) string {
-	return rdbms.StmtAddPK(tableName, pk)
 }

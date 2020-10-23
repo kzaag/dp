@@ -1,0 +1,17 @@
+driver: postgres
+auth:
+  default:
+    server: 127.0.0.1
+    database: dp
+    password: postgres
+    user: postgres
+    args:
+      sslmode: disable
+exec:
+  - type: tables
+    path: tables
+    auth: default
+    
+  - type: types
+    path: types
+    auth: default

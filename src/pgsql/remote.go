@@ -6,7 +6,7 @@ import (
 	"database/sql"
 )
 
-func REM_GetEnum(db *sql.DB) ([]Type, error) {
+func RemoteGetEnum(db *sql.DB) ([]Type, error) {
 
 	q := `select typname from pg_type where typcategory = 'E'`
 	rows, err := db.Query(q)
@@ -60,7 +60,7 @@ func REM_GetEnum(db *sql.DB) ([]Type, error) {
 	return tps, nil
 }
 
-func REM_GetComposite(db *sql.DB) ([]Type, error) {
+func RemoteGetComposite(db *sql.DB) ([]Type, error) {
 
 	q := `select typname from pg_type where typcategory = 'C' and typarray <> 0;`
 	rows, err := db.Query(q)
@@ -124,14 +124,14 @@ func REM_GetComposite(db *sql.DB) ([]Type, error) {
 	return tps, nil
 }
 
-func REM_GetTypes(db *sql.DB, localTypes []Type) ([]Type, error) {
+func RemoteGetTypes(db *sql.DB, localTypes []Type) ([]Type, error) {
 
-	enums, err := REM_GetEnum(db)
+	enums, err := RemoteGetEnum(db)
 	if err != nil {
 		return nil, err
 	}
 
-	composite, err := REM_GetComposite(db)
+	composite, err := RemoteGetComposite(db)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +270,7 @@ func RemoteGetAllUnique(db *sql.DB, tableName string) ([]rdbms.Unique, error) {
 	return ret, nil
 }
 
-func GetAllCheck(db *sql.DB, tableName string) ([]rdbms.Check, error) {
+func RemoteGetAllCheck(db *sql.DB, tableName string) ([]rdbms.Check, error) {
 
 	var rows *sql.Rows
 	var err error
@@ -439,7 +439,7 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
 	return ret, nil
 }
 
-func REM_GetTypedTableInfo(db *sql.DB, t *rdbms.Table) error {
+func RemoteGetTypedTableInfo(db *sql.DB, t *rdbms.Table) error {
 
 	var err error
 	var rows *sql.Rows
@@ -466,7 +466,7 @@ func REM_GetTypedTableInfo(db *sql.DB, t *rdbms.Table) error {
 	return nil
 }
 
-func RemoteGetTableDef(db *sql.DB, tableName string) (*rdbms.Table, error) {
+func RemoteGetTable(db *sql.DB, tableName string) (*rdbms.Table, error) {
 
 	cols, err := RemoteGetAllColumn(db, tableName)
 	if err != nil {
@@ -492,7 +492,7 @@ func RemoteGetTableDef(db *sql.DB, tableName string) (*rdbms.Table, error) {
 		return nil, err
 	}
 
-	c, err := GetAllCheck(db, tableName)
+	c, err := RemoteGetAllCheck(db, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -511,19 +511,19 @@ func RemoteGetTableDef(db *sql.DB, tableName string) (*rdbms.Table, error) {
 	tbl.Primary = pk
 	tbl.Indexes = ix
 
-	if err = REM_GetTypedTableInfo(db, &tbl); err != nil {
+	if err = RemoteGetTypedTableInfo(db, &tbl); err != nil {
 		return nil, err
 	}
 
 	return &tbl, nil
 }
 
-func REM_GetMatchTables(db *sql.DB, userTables []rdbms.Table) ([]rdbms.Table, error) {
+func RemoteGetMatchedTables(db *sql.DB, userTables []rdbms.Table) ([]rdbms.Table, error) {
 
 	tbls := make([]rdbms.Table, len(userTables))
 
 	for i := 0; i < len(userTables); i++ {
-		tbl, err := RemoteGetTableDef(db, userTables[i].Name)
+		tbl, err := RemoteGetTable(db, userTables[i].Name)
 		if err != nil {
 			return nil, err
 		}

@@ -1,12 +1,13 @@
 package rdbms
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 /*
@@ -219,7 +220,7 @@ func ParserGetTablesInDir(ctx *StmtCtx, dir string) ([]Table, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !isDir && strings.HasSuffix(name, ".json") {
+		if !isDir && strings.HasSuffix(name, ".yml") {
 			content, err := ioutil.ReadFile(name)
 			defs[i] = content
 			if len(content) == 0 {
@@ -238,10 +239,10 @@ func ParserGetTablesInDir(ctx *StmtCtx, dir string) ([]Table, error) {
 	ci := 0
 	for i := 0; i < length; i++ {
 		if defs[i] != nil {
-			err = json.Unmarshal([]byte(defs[i]), &ret[ci])
+			err = yaml.Unmarshal([]byte(defs[i]), &ret[ci])
 			if err != nil {
 				name := path.Join(dir, files[i].Name())
-				return nil, fmt.Errorf("couldnt unmarshall %s %s", name, err.Error())
+				return nil, fmt.Errorf("couldnt unmarshal %s %s", name, err.Error())
 			}
 			ci++
 		}

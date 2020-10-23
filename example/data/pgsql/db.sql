@@ -1,1 +1,0 @@
-create database if not exists dp_database;

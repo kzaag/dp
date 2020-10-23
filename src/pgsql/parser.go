@@ -2,11 +2,12 @@ package pgsql
 
 import (
 	"database-project/rdbms"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 func ParserElevateErrorType(tname string, err error) error {
@@ -74,7 +75,7 @@ func ParserGetTypes(ctx *rdbms.StmtCtx, dir string) ([]Type, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !isDir && strings.HasSuffix(name, ".json") {
+		if !isDir && strings.HasSuffix(name, ".yml") {
 			content, err := ioutil.ReadFile(name)
 			defs[i] = content
 			if len(content) == 0 {
@@ -93,7 +94,7 @@ func ParserGetTypes(ctx *rdbms.StmtCtx, dir string) ([]Type, error) {
 	ci := 0
 	for i := 0; i < length; i++ {
 		if defs[i] != nil {
-			err = json.Unmarshal([]byte(defs[i]), &ret[ci])
+			err = yaml.Unmarshal([]byte(defs[i]), &ret[ci])
 			if err != nil {
 				name := path.Join(dir, files[i].Name())
 				return nil, fmt.Errorf("couldnt unmarshall %s %s", name, err.Error())

@@ -1,0 +1,26 @@
+name: users
+columns:
+  - name: id
+    type: int
+    nullable: false
+    identity: true
+  - name: name
+    type: varchar
+    length: 100
+  - name: fullname
+    type: text
+  - name: weight
+    type: float8
+  - name: age
+    type: int
+  - name: born
+    type: timestamp
+primary:
+  name: "users_pk"
+  columns:
+    - name: id
+    # !!!
+unique:
+  - name: users_unique_name
+    columns:
+      - name: name
