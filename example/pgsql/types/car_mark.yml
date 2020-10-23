@@ -1,7 +1,8 @@
-name: car_mark
-type: enum
-values:
-  - a
-  - b
-  - c
-  - d
+type:
+  name: car_mark
+  type: enum
+  values:
+    - a
+    - b
+    - c
+    - d

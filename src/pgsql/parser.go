@@ -3,8 +3,6 @@ package pgsql
 import (
 	"database-project/rdbms"
 	"fmt"
-	"io/ioutil"
-	"path"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -27,85 +25,71 @@ func __ParserValidateStrArray(c []string) error {
 	return nil
 }
 
-func ParserValidateTypes(ctx *rdbms.StmtCtx, types []Type) error {
-
-	if types == nil {
+func ParserValidateType(ctx *rdbms.StmtCtx, t *Type, path string) error {
+	if t == nil {
 		return nil
 	}
-
-	for i := 0; i < len(types); i++ {
-		t := &types[i]
-		if t.Name == "" {
-			return fmt.Errorf("type at index %d doesnt have name specified", i)
-		}
-
-		t.Type = strings.ToLower(t.Type)
-
-		switch t.Type {
-		case TT_Composite:
-			if err := rdbms.ParserValidateColumn(ctx, t.Columns); err != nil {
-				return ParserElevateErrorType(t.Name, err)
-			}
-			for i := 0; i < len(t.Columns); i++ {
-				t.Columns[i].Meta = rdbms.CM_CompType
-			}
-		case TT_Enum:
-			if err := __ParserValidateStrArray(t.Values); err != nil {
-				return ParserElevateErrorType(t.Name, err)
-			}
-		default:
-			return ParserElevateErrorType(t.Name, fmt.Errorf("unknown type: \"%s\"", t.Type))
-		}
+	if t.Name == "" {
+		return fmt.Errorf("type defined in %s doesnt have name specified", path)
 	}
 
+	t.Type = strings.ToLower(t.Type)
+
+	switch t.Type {
+	case TT_Composite:
+		if err := rdbms.ParserValidateColumn(ctx, t.Columns); err != nil {
+			return ParserElevateErrorType(t.Name, err)
+		}
+		for i := 0; i < len(t.Columns); i++ {
+			t.Columns[i].Meta = rdbms.CM_CompType
+		}
+	case TT_Enum:
+		if err := __ParserValidateStrArray(t.Values); err != nil {
+			return ParserElevateErrorType(t.Name, err)
+		}
+	default:
+		return ParserElevateErrorType(t.Name, fmt.Errorf("unknown type: \"%s\"", t.Type))
+	}
 	return nil
 }
 
-func ParserGetTypes(ctx *rdbms.StmtCtx, dir string) ([]Type, error) {
-	files, err := ioutil.ReadDir(dir)
+type DDObject struct {
+	Table *rdbms.Table
+	Type  *Type
+}
+
+type ParseCtx struct {
+	Stmt *StmtCtx
+	ret  []DDObject
+}
+
+func ParserGetValidateObject(path string, fc []byte, args interface{}) error {
+	var err error
+	var obj DDObject
+	ctx := args.(*ParseCtx)
+	err = yaml.Unmarshal(fc, &obj)
+	if err != nil {
+		return fmt.Errorf("couldnt unmarshal %s %s", path, err.Error())
+	}
+	/* XOR table and type. only 1 can be present in file */
+	if (obj.Table != nil) == (obj.Type != nil) {
+		return fmt.Errorf("couldnt validate %s, assert table XOR type failed.", path)
+	}
+	if obj.Table != nil {
+		err = rdbms.ParserValidateTable(&ctx.Stmt.StmtCtx, obj.Table, path)
+	} else {
+		err = ParserValidateType(&ctx.Stmt.StmtCtx, obj.Type, path)
+	}
+	ctx.ret = append(ctx.ret, obj)
+	return err
+}
+
+func ParserGetObjectsInDir(ctx *StmtCtx, dir string) ([]DDObject, error) {
+	parser := ParseCtx{}
+	parser.Stmt = ctx
+	err := rdbms.ParserIterateOverSource(dir, ParserGetValidateObject, &parser)
 	if err != nil {
 		return nil, err
 	}
-	length := len(files)
-	defs := make([][]byte, length)
-	allowedLen := 0
-	for i := 0; i < length; i++ {
-		name := path.Join(dir, files[i].Name())
-		isDir, err := rdbms.ParserIsDirectory(name)
-		if err != nil {
-			return nil, err
-		}
-		if !isDir && strings.HasSuffix(name, ".yml") {
-			content, err := ioutil.ReadFile(name)
-			defs[i] = content
-			if len(content) == 0 {
-				return nil, fmt.Errorf("%s - empty file content", name)
-			}
-			if err != nil {
-				return nil, err
-			}
-			allowedLen++
-		} else {
-			defs[i] = nil
-		}
-	}
-
-	ret := make([]Type, allowedLen)
-	ci := 0
-	for i := 0; i < length; i++ {
-		if defs[i] != nil {
-			err = yaml.Unmarshal([]byte(defs[i]), &ret[ci])
-			if err != nil {
-				name := path.Join(dir, files[i].Name())
-				return nil, fmt.Errorf("couldnt unmarshall %s %s", name, err.Error())
-			}
-			ci++
-		}
-	}
-
-	if err := ParserValidateTypes(ctx, ret); err != nil {
-		return nil, err
-	}
-
-	return ret, nil
+	return parser.ret, err
 }

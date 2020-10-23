@@ -13,6 +13,26 @@ type StmtCtx struct {
 	AddType  func(*Type) string
 }
 
+func StmtNew() *StmtCtx {
+	ctx := StmtCtx{}
+	ctx.AddCheck = rdbms.StmtAddCheck
+	ctx.AddColumn = StmtAddColumn
+	ctx.AddFK = rdbms.StmtAddFk
+	ctx.AddIndex = StmtAddIndex
+	ctx.AddPK = rdbms.StmtAddPK
+	ctx.AddType = StmtAddType
+	ctx.AddUnique = rdbms.StmtAddUnique
+	ctx.AlterColumn = StmtAlterColumn
+	ctx.ColumnType = StmtColumnType
+	ctx.CreateTable = StmtCreateTable
+	ctx.DropColumn = StmtDropColumn
+	ctx.DropConstraint = rdbms.StmtDropConstraint
+	ctx.DropIndex = StmtDropIndex
+	ctx.DropTable = rdbms.StmtDropTable
+	ctx.DropType = StmtDropType
+	return &ctx
+}
+
 func __StmtDefColumn(column *rdbms.Column) string {
 
 	var cs string
@@ -332,7 +352,7 @@ func StmtAddType(t *Type) string {
 			if i > 0 {
 				ret += ","
 			}
-			ret += StmtColumnType(&t.Columns[i])
+			ret += rdbms.StmtColumnNameAndType(&t.Columns[i])
 		}
 
 		ret += ");\n"

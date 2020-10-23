@@ -1,10 +1,11 @@
-name: cars_type
-type: composite
-columns:
-  - name: id
-    type: int
-  - name: name
-    type: text
+type:
+  name: cars_type
+  type: composite
+  columns:
+    - name: id
+      type: int
+    - name: name
+      type: text
 
 
       

@@ -5,64 +5,106 @@ import (
 	"database-project/rdbms"
 	"database/sql"
 	"fmt"
+	"path"
+	"strings"
 )
 
-func DriverCreateMergeScript(db *sql.DB, ectx []*config.Exec) (string, error) {
-
-	ctx := StmtCtx{}
-	ctx.AddCheck = rdbms.StmtAddCheck
-	ctx.AddColumn = StmtAddColumn
-	ctx.AddFK = rdbms.StmtAddFk
-	ctx.AddIndex = StmtAddIndex
-	ctx.AddPK = rdbms.StmtAddPK
-	ctx.AddType = StmtAddType
-	ctx.AddUnique = rdbms.StmtAddUnique
-	ctx.AlterColumn = StmtAlterColumn
-	ctx.ColumnType = StmtColumnType
-	ctx.CreateTable = StmtCreateTable
-	ctx.DropColumn = StmtDropColumn
-	ctx.DropConstraint = rdbms.StmtDropConstraint
-	ctx.DropIndex = StmtDropIndex
-	ctx.DropTable = rdbms.StmtDropTable
-	ctx.DropType = StmtDropType
-
-	var err error
+func __DriverGetMergeScript(db *sql.DB, ectx *config.Target, args []string) (string, error) {
 	ts := rdbms.MergeTableCtx{}
 	tt := MergeTypeCtx{}
-	var exec *config.Exec
+	ctx := StmtNew()
+	var mergeScript string
+	var err error
+	var dd []DDObject
 
-	var tmptypes []Type
-	var tmptables []rdbms.Table
-
-	for _, exec = range ectx {
-		switch exec.Type {
-		case rdbms.CONFIG_TABLE_KEY:
-			if tmptables, err = rdbms.ParserGetTablesInDir(&ctx.StmtCtx, exec.Path); err != nil {
-				return "", err
+	for _, arg := range args {
+		if dd, err = ParserGetObjectsInDir(ctx, arg); err != nil {
+			return "", err
+		}
+		for _, obj := range dd {
+			if obj.Table != nil {
+				ts.LocalTables = append(ts.LocalTables, *obj.Table)
+			} else {
+				tt.localTypes = append(tt.localTypes, *obj.Type)
 			}
-			ts.LocalTables = append(ts.LocalTables, tmptables...)
-		case "types":
-			if tmptypes, err = ParserGetTypes(&ctx.StmtCtx, exec.Path); err != nil {
-				return "", err
-			}
-			tt.localTypes = append(tt.localTypes, tmptypes...)
-		default:
-			return "", fmt.Errorf("Unkown exec type: %s", exec.Type)
 		}
 	}
 
 	if ts.RemoteTables, err = RemoteGetMatchedTables(db, ts.LocalTables); err != nil {
 		return "", err
 	}
+
 	if tt.remoteTypes, err = RemoteGetTypes(db, tt.localTypes); err != nil {
 		return "", err
 	}
 
-	var mergeScript string
-
-	if mergeScript, err = Merge(&ctx, &ts, &tt); err != nil {
-		return "", nil
+	if mergeScript, err = Merge(ctx, &ts, &tt); err != nil {
+		return "", err
 	}
 
 	return mergeScript, nil
+}
+
+func __DriverFixAbsPaths(basepath string, paths []string) {
+	var i int
+	var p *string
+	for i = 0; i < len(paths); i++ {
+		p = &paths[i]
+		if !path.IsAbs(*p) {
+			*p = path.Join(basepath, *p)
+		}
+	}
+}
+
+func DriverRunTarget(basepath string, ectx *config.Target) error {
+	var err error
+	var db *sql.DB
+
+	if db, err = CSCreateDBfromConfig(ectx); err != nil {
+		return err
+	}
+
+	defer db.Close()
+
+	execParams := rdbms.ExecParams{}
+	execParams.Exec = true
+	execParams.Verb = true
+
+	for i, e := range ectx.Exec {
+		if execParams.Verb {
+			fmt.Printf("\033[33m\n%s %s@%s %d (%s)\033[0m\n\n",
+				ectx.Name,
+				ectx.Database,
+				ectx.Server,
+				i, e.Type)
+		}
+		switch e.Type {
+		case "merge":
+			__DriverFixAbsPaths(basepath, e.Args)
+			script := ""
+			script, err = __DriverGetMergeScript(db, ectx, e.Args)
+			if err != nil {
+				break
+			}
+			cc := strings.Split(script, ";\n")
+			_, err = rdbms.ExecLines(db, cc, execParams)
+		case "stmt":
+			_, err = rdbms.ExecLines(db, e.Args, execParams)
+		case "script":
+			__DriverFixAbsPaths(basepath, e.Args)
+			err = rdbms.ExecPaths(db, e.Args, execParams)
+		}
+		if err != nil {
+			switch e.Err {
+			case "ignore":
+				break
+			case "warn":
+				fmt.Printf("\033[4;31mQuery completed with errors: %s.\033[0m\n", err.Error())
+			case "raise":
+			case "":
+				return err
+			}
+		}
+	}
+	return nil
 }

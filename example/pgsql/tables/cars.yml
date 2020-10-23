@@ -1,6 +1,7 @@
-name: cars
-type: cars_type
-primary:
-  name: cars_pk
-  columns:
-      - name: id
+table:
+  name: cars
+  type: cars_type
+  primary:
+    name: cars_pk
+    columns:
+        - name: id

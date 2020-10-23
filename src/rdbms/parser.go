@@ -6,8 +6,6 @@ import (
 	"os"
 	"path"
 	"strings"
-
-	"gopkg.in/yaml.v2"
 )
 
 /*
@@ -174,83 +172,114 @@ func __ParserErrorTable(tname string, err error) error {
 	return fmt.Errorf("in table %s: %s", tname, err.Error())
 }
 
-func ParserValidateTables(ctx *StmtCtx, tables []Table) error {
-	if tables == nil {
+func ParserValidateTable(ctx *StmtCtx, t *Table, f string) error {
+	if t == nil {
 		return nil
 	}
-	for i := 0; i < len(tables); i++ {
-		t := tables[i]
-		if t.Name == "" {
-			return fmt.Errorf("table at index %d doesnt have name specified", i)
-		}
-		name := t.Name
-		if err := ParserValidateCheck(t.Check); err != nil {
-			return __ParserErrorTable(name, err)
-		}
-		if err := ParserValidateUnique(t.Unique); err != nil {
-			return __ParserErrorTable(name, err)
-		}
-		if err := ParserValidateFK(t.Foreign); err != nil {
-			return __ParserErrorTable(name, err)
-		}
-		if err := ParserValidatePK(t.Primary); err != nil {
-			return __ParserErrorTable(name, err)
-		}
-		if err := ParserValidateColumn(ctx, t.Columns); err != nil {
-			return __ParserErrorTable(name, err)
-		}
-		if err := ParserValidateIndex(t.Indexes); err != nil {
-			return __ParserErrorTable(name, err)
-		}
+	if t.Name == "" {
+		return fmt.Errorf("table defined in %s doesnt have specified name", f)
+	}
+	name := t.Name
+	if err := ParserValidateCheck(t.Check); err != nil {
+		return __ParserErrorTable(name, err)
+	}
+	if err := ParserValidateUnique(t.Unique); err != nil {
+		return __ParserErrorTable(name, err)
+	}
+	if err := ParserValidateFK(t.Foreign); err != nil {
+		return __ParserErrorTable(name, err)
+	}
+	if err := ParserValidatePK(t.Primary); err != nil {
+		return __ParserErrorTable(name, err)
+	}
+	if err := ParserValidateColumn(ctx, t.Columns); err != nil {
+		return __ParserErrorTable(name, err)
+	}
+	if err := ParserValidateIndex(t.Indexes); err != nil {
+		return __ParserErrorTable(name, err)
 	}
 	return nil
 }
 
-func ParserGetTablesInDir(ctx *StmtCtx, dir string) ([]Table, error) {
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	length := len(files)
-	defs := make([][]byte, length)
-	allowedLen := 0
-	for i := 0; i < length; i++ {
-		name := path.Join(dir, files[i].Name())
-		isDir, err := ParserIsDirectory(name)
-		if err != nil {
-			return nil, err
-		}
-		if !isDir && strings.HasSuffix(name, ".yml") {
-			content, err := ioutil.ReadFile(name)
-			defs[i] = content
-			if len(content) == 0 {
-				return nil, fmt.Errorf("%s - empty file content", name)
-			}
-			if err != nil {
-				return nil, err
-			}
-			allowedLen++
-		} else {
-			defs[i] = nil
-		}
+// func ParserIterateOverSource(
+// 	sourcePath string,
+// 	cb func(path string, fc []byte, args interface{}) error,
+// 	args interface{}) error {
+
+// 	files, err := ioutil.ReadDir(sourcePath)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	length := len(files)
+// 	defs := make([][]byte, length)
+// 	allowedLen := 0
+// 	for i := 0; i < length; i++ {
+// 		name := path.Join(sourcePath, files[i].Name())
+// 		isDir, err := ParserIsDirectory(name)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		if !isDir && strings.HasSuffix(name, ".yml") {
+// 			content, err := ioutil.ReadFile(name)
+// 			defs[i] = content
+// 			if len(content) == 0 {
+// 				return fmt.Errorf("%s - empty file content", name)
+// 			}
+// 			if err != nil {
+// 				return err
+// 			}
+// 			allowedLen++
+// 		} else {
+// 			defs[i] = nil
+// 		}
+// 	}
+
+// 	ci := 0
+// 	for i := 0; i < length; i++ {
+// 		if defs[i] != nil {
+// 			name := path.Join(sourcePath, files[i].Name())
+// 			if err = cb(name, defs[i], args); err != nil {
+// 				return err
+// 			}
+// 			ci++
+// 		}
+// 	}
+// 	return nil
+// }
+
+func ParserIterateOverSource(
+	sourcePath string,
+	cb func(path string, fc []byte, args interface{}) error,
+	args interface{}) error {
+
+	var err error
+	var fi os.FileInfo
+	var di []os.FileInfo
+	var fc []byte
+
+	if fi, err = os.Stat(sourcePath); err != nil {
+		return err
 	}
 
-	ret := make([]Table, allowedLen)
-	ci := 0
-	for i := 0; i < length; i++ {
-		if defs[i] != nil {
-			err = yaml.Unmarshal([]byte(defs[i]), &ret[ci])
-			if err != nil {
-				name := path.Join(dir, files[i].Name())
-				return nil, fmt.Errorf("couldnt unmarshal %s %s", name, err.Error())
-			}
-			ci++
+	if fi.IsDir() {
+		if di, err = ioutil.ReadDir(sourcePath); err != nil {
+			return err
 		}
+		for _, fi = range di {
+			if err = ParserIterateOverSource(
+				path.Join(sourcePath, fi.Name()),
+				cb, args); err != nil {
+				return err
+			}
+		}
+		return err
 	}
 
-	if err := ParserValidateTables(ctx, ret); err != nil {
-		return nil, err
+	if fc, err = ioutil.ReadFile(sourcePath); err != nil {
+		return err
 	}
-
-	return ret, nil
+	if len(fc) == 0 {
+		return fmt.Errorf("%s - empty file content", sourcePath)
+	}
+	return cb(sourcePath, fc, args)
 }

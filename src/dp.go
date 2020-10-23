@@ -412,23 +412,9 @@ func DpProgram() error {
 
 	_ = script
 
-	// if script, err = pgsql.EntryMergeScript(&c); err != nil {
-	// 	return err
-	// }
-
-	// fmt.Println(script)
-
-	var ectx map[string]*pgsql.ExecutionCtx
-
-	if ectx, err = pgsql.GetExecutionCtx(&c); err != nil {
-		return err
-	}
-
-	for k := range ectx {
-		fmt.Printf("%s: \n", k)
-		v := ectx[k]
-		for _, x := range v.Exec {
-			fmt.Printf("\t%s, %s\n", x.Type, x.Path)
+	for _, x := range c.Targets {
+		if err = pgsql.DriverRunTarget(c.Base, x); err != nil {
+			return err
 		}
 	}
 

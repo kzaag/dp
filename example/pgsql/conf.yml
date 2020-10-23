@@ -1,17 +1,36 @@
 driver: postgres
-auth:
-  default:
-    server: 127.0.0.1
+
+base_target: &base_target
+  server: 127.0.0.1
+  args:
+    # needless to say - this is not recommended.
+    # im enablind this since this is example config meant to work with docker container, 
+    # without extra customization
+    sslmode: disable
+
+targets:
+  - name: master
+    << : *base_target
+    database: postgres
+    # if you dont provide password in this file. you will be prompted to do so during deploy
+    password: postgres
+    user: postgres
+    exec:
+      - type: stmt
+        args: ["create database dp"]
+        # if database exists and this returns error, then print error information, but proceed with execution.
+        # alternatives are: 
+        #   ignore          - completely ignore error. 
+        #   raise (default) - stop execution 
+        err: warn
+
+  - name: dp
+    << : *base_target
     database: dp
     password: postgres
     user: postgres
-    args:
-      sslmode: disable
-exec:
-  - type: tables
-    path: tables
-    auth: default
-    
-  - type: types
-    path: types
-    auth: default
+    exec:
+      - type: merge
+        args: ["./tables/", "./types"]
+      - type: stmt
+        args: ["select * from users"]

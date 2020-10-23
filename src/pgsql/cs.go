@@ -10,50 +10,40 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-func CSCreateDBfromConfig(name string, auth *config.Auth) (*sql.DB, error) {
-	var cs string
-	var err error
-
-	if cs, err = CSCreateFromConfig(name, auth); err != nil {
-		return nil, err
-	}
-
-	return sql.Open("postgres", cs)
-}
-
-func CSCreateFromConfig(name string, auth *config.Auth) (string, error) {
-	if name == "" {
+func CSCreateFromConfig(target *config.Target) (string, error) {
+	if target.Name == "" {
 		return "", fmt.Errorf("Encountered anonymous auth record")
 	}
 
-	if auth.ConnectionString != "" {
-		return auth.ConnectionString, nil
+	if target.ConnectionString != "" {
+		return target.ConnectionString, nil
 	}
 
-	if auth.Password == "" {
-		fmt.Printf("password for %s: ", name)
+	if target.Password == "" {
+		fmt.Printf("password for %s: ", target.Name)
 		bytes, err := terminal.ReadPassword(int(syscall.Stdin))
 		if err != nil {
 			return "", err
 		}
-		auth.Password = string(bytes)
+		fmt.Println()
+		target.Password = string(bytes)
 	}
 
 	host := ""
-	if auth.Server != "" {
-		host = fmt.Sprintf("host=%s", auth.Server)
+	if target.Server != "" {
+		host = fmt.Sprintf("host=%s", target.Server)
 	}
 	user := ""
-	if auth.User != "" {
-		user = fmt.Sprintf("user=%s", auth.User)
+	if target.User != "" {
+		user = fmt.Sprintf("user=%s", target.User)
 	}
 	password := ""
-	if auth.Password != "" {
-		password = fmt.Sprintf("password=%s", auth.Password)
+	if target.Password != "" {
+		password = fmt.Sprintf("password=%s", target.Password)
 	}
 	database := ""
-	if auth.Database != "" {
-		database = fmt.Sprintf("dbname=%s", auth.Database)
+	if target.Database != "" {
+		database = fmt.Sprintf("dbname=%s", target.Database)
 	}
 
 	cs := fmt.Sprintf(
@@ -63,11 +53,22 @@ func CSCreateFromConfig(name string, auth *config.Auth) (string, error) {
 		password,
 		database)
 
-	if auth.Args != nil {
-		for k := range auth.Args {
-			cs += fmt.Sprintf(" %s=%s", k, auth.Args[k])
+	if target.Args != nil {
+		for k := range target.Args {
+			cs += fmt.Sprintf(" %s=%s", k, target.Args[k])
 		}
 	}
 
 	return cs, nil
+}
+
+func CSCreateDBfromConfig(target *config.Target) (*sql.DB, error) {
+	var cs string
+	var err error
+
+	if cs, err = CSCreateFromConfig(target); err != nil {
+		return nil, err
+	}
+
+	return sql.Open("postgres", cs)
 }

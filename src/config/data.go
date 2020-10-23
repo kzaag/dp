@@ -3,26 +3,27 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
-	"path"
 	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v2"
 )
 
-type Auth struct {
+type Target struct {
 	ConnectionString string
 	Server           string
 	Database         string
 	User             string
 	Password         string
 	Args             map[string]string
+	Exec             []Exec
+	Name             string
 }
 
 type Exec struct {
 	Type string
-	Path string
-	Auth string
+	Args []string
+	Err  string
 }
 
 /*
@@ -30,9 +31,9 @@ type Exec struct {
 	deal with it.
 */
 type Data struct {
-	Driver string
-	Auth   map[string]*Auth
-	Exec   []Exec
+	Driver  string
+	Base    string
+	Targets []*Target
 }
 
 func New() *Data {
@@ -83,15 +84,12 @@ func CreateFromPath(c *Data, configPath string) error {
 		return err
 	}
 
-	/* replace all relative paths to the absolute (relatively to config location) */
-	if fpath, err = filepath.Abs(fpath); err != nil {
-		return err
-	}
-	dir := filepath.Dir(fpath)
-	for i := 0; i < len(c.Exec); i++ {
-		if !path.IsAbs(c.Exec[i].Path) {
-			c.Exec[i].Path = path.Join(dir, c.Exec[i].Path)
+	if c.Base == "" {
+		if fpath, err = filepath.Abs(fpath); err != nil {
+			return err
 		}
+		dir := filepath.Dir(fpath)
+		c.Base = dir
 	}
 
 	return err
