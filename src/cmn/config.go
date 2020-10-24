@@ -1,8 +1,10 @@
-package config
+package cmn
 
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -21,26 +23,29 @@ type Target struct {
 }
 
 type Exec struct {
-	Type string
-	Args []string
-	Err  string
+	Type    string
+	Args    []string
+	Err     string
+	Execute bool
 }
 
 /*
 	these arrays really should be hash tables.
 	deal with it.
 */
-type Data struct {
+type Config struct {
 	Driver  string
 	Base    string
 	Targets []*Target
 }
 
-func New() *Data {
-	return &Data{}
+func New() *Config {
+	return &Config{}
 }
 
-func CreateFromText(c *Data, j []byte) error {
+const __NotFoundMsg = "stat *.yml: no such file or directory"
+
+func CreateFromText(c *Config, j []byte) error {
 	return yaml.Unmarshal(j, c)
 	/*
 		i dont really think that dp should support more than 1 config file format
@@ -49,50 +54,68 @@ func CreateFromText(c *Data, j []byte) error {
 
 }
 
-func CreateFromPath(c *Data, configPath string) error {
+func ConfigGetBufFromDir(dir string) (string, []byte, error) {
+
+	var bf []byte
+
+	fs, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return "", nil, err
+	}
+
+	for i := 0; i < len(fs); i++ {
+		n := path.Join(dir, fs[i].Name())
+		if strings.HasSuffix(n, ".yml") {
+			if bf, err = ioutil.ReadFile(n); err != nil {
+				return "", nil, err
+			}
+			return n, bf, nil
+		}
+	}
+
+	return "", nil, fmt.Errorf(__NotFoundMsg)
+}
+
+func ConfigNewFromPath(configPath string) (*Config, error) {
 	var bf []byte
 	var err error
 	var fpath string
+	var c Config
+	var fi os.FileInfo
 
 	if configPath == "" {
-		fs, err := ioutil.ReadDir(".")
-		if err != nil {
-			return err
-		}
-		for i := 0; i < len(fs); i++ {
-			n := fs[i].Name()
-			if strings.HasSuffix(n, ".json") {
-				if bf, err = ioutil.ReadFile(n); err != nil {
-					return err
-				}
-				fpath = n
-				break
-			}
-
-			if i == len(fs)-1 {
-				return fmt.Errorf("couldnt find config: *.json")
-			}
+		if fpath, bf, err = ConfigGetBufFromDir("."); err != nil {
+			return nil, err
 		}
 	} else {
-		if bf, err = ioutil.ReadFile(configPath); err != nil {
-			return err
+		if fi, err = os.Stat(configPath); err != nil {
+			return nil, err
 		}
-		fpath = configPath
+		if fi.IsDir() {
+			if fpath, bf, err = ConfigGetBufFromDir(configPath); err != nil {
+				return nil, err
+			}
+		} else {
+			if bf, err = ioutil.ReadFile(configPath); err != nil {
+				return nil, err
+			}
+			fpath = configPath
+		}
 	}
 
-	if err = CreateFromText(c, bf); err != nil {
-		return err
+	if err = CreateFromText(&c, bf); err != nil {
+		return nil, err
 	}
 
 	if c.Base == "" {
 		if fpath, err = filepath.Abs(fpath); err != nil {
-			return err
+			return nil, err
 		}
 		dir := filepath.Dir(fpath)
 		c.Base = dir
 	}
 
-	return err
+	return &c, err
 }
 
 // func FindExecWithAuth(data *Data, execType string) *Exec {

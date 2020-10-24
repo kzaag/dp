@@ -3,9 +3,7 @@ driver: postgres
 base_target: &base_target
   server: 127.0.0.1
   args:
-    # needless to say - this is not recommended.
-    # im enablind this since this is example config meant to work with docker container, 
-    # without extra customization
+    # needless to say - use this for testing only.
     sslmode: disable
 
 targets:
@@ -23,6 +21,10 @@ targets:
         #   ignore          - completely ignore error. 
         #   raise (default) - stop execution 
         err: warn
+        # execute:true means that execution will always take place.
+        # even if running dry-run.
+        # this is used so database will be created and following merge will take place.
+        execute: true
 
   - name: dp
     << : *base_target
@@ -33,4 +35,6 @@ targets:
       - type: merge
         args: ["./tables/", "./types"]
       - type: stmt
-        args: ["select * from users"]
+      # it wont return anything since we dont read data, but quyery wqill execvute nontheless and errors will be returned.
+      # it may be cool to add result interpreter so records will be displayed in terminal...
+        args: ["select * from users", "select * from houses"]

@@ -1,4 +1,2 @@
 bin/**
-data/priv/**
-!data/priv/.gitkeep
-go.sum
+src/go.sum

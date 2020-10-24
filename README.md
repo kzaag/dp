@@ -1,16 +1,26 @@
-# work-in-progress
 
 # database-project 
 
-schema versioning and deployement tool
+schema versioning and deployement
 
-1. building
-    * build project into bin directory:
-        ```make```
-    * build and install project globally:
-        ```make install```
-2. examples
-    * postgresql
-        ...
+1. Get started
+    * Postgresql
+        You can use following command to run pg server in docker container in terminal.
+        ```sudo docker run -it --rm --net host -e POSTGRES_PASSWORD=postgres --name dppg postgres;```
+        go to the path with cloned project, build it and enter output directory: 
+        ```make && cd bin```
+        now to execute dp type in following 
+        ```./dp -c pg/conf.yml -v ```
+        - -c    the configuration file path. You can provide directory (then first found .yml file will be 
+        - -v    Some extra-verbose logging.
+    
+        > Note that database dp will be created during this process,
+        > because in configuration file im overriding user -e (execute) flag, for 'create database' statement
+        > other queries will not be executed in dry run.
+
+        that will generate queries which are to be executed.
+        after verification you can execute those queries on target server
+        ```./dp -c pg/conf.yml -v -e```
+        - -e : execute queries instead of generating output
     * mssql
-        ...
+        - work-in-progress

@@ -73,6 +73,7 @@ type Column struct {
 
 	// extra metadata which specifies extra behaviour about column in specific dbms
 	//( example: like composite type column which cannot be not null, or different add/drop/alter syntax applies)
+	// maybe this shoul;d be removed from rdbms, and applied directly in rdbms implementations.
 	Meta ColumnMeta
 }
 

@@ -1,16 +1,15 @@
 package pgsql
 
 import (
+	"database-project/cmn"
 	"database/sql"
 	"fmt"
 	"syscall"
 
-	"database-project/config"
-
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-func CSCreateFromConfig(target *config.Target) (string, error) {
+func CSCreateFromConfig(target *cmn.Target) (string, error) {
 	if target.Name == "" {
 		return "", fmt.Errorf("Encountered anonymous auth record")
 	}
@@ -62,7 +61,7 @@ func CSCreateFromConfig(target *config.Target) (string, error) {
 	return cs, nil
 }
 
-func CSCreateDBfromConfig(target *config.Target) (*sql.DB, error) {
+func CSCreateDBfromConfig(target *cmn.Target) (*sql.DB, error) {
 	var cs string
 	var err error
 

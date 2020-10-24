@@ -1,6 +1,7 @@
 package rdbms
 
 import (
+	"database-project/cmn"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -10,45 +11,7 @@ import (
 	"time"
 )
 
-type ExecParams struct {
-	Exec bool
-	Verb bool
-}
-
-// func ExecCmdsVerbose(db *sql.DB, cmds string) (int, int, error) {
-// 	cc := strings.Split(cmds, ";\n")
-// 	fmt.Println()
-// 	all := 0
-// 	for i := 0; i < len(cc); i++ {
-// 		if cc[i] == "" {
-// 			continue
-// 		}
-// 		all++
-// 		fmt.Println(cc[i])
-// 		start := time.Now()
-// 		_, err := db.Exec(cc[i])
-// 		if err != nil {
-// 			fmt.Println("\033[4;31mError " + err.Error() + "\033[0m")
-// 			return i, len(cc), fmt.Errorf("")
-// 		}
-// 		elapsed := time.Since(start)
-// 		fmt.Println("\033[4;32mQuery completed in " + elapsed.String() + "\033[0m\n")
-// 	}
-// 	return all, all, nil
-// }
-
-// func ExecCmds(db *sql.DB, cmds string) error {
-// 	cc := strings.Split(cmds, ";\n")
-// 	for i := 0; i < len(cc); i++ {
-// 		_, err := db.Exec(cc[i])
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }
-
-func ExecLines(db *sql.DB, cc []string, params ExecParams) (int, error) {
+func ExecLines(db *sql.DB, cc []string, uargv *cmn.Args) (int, error) {
 	done := 0
 	var start time.Time
 	var err error
@@ -57,11 +20,11 @@ func ExecLines(db *sql.DB, cc []string, params ExecParams) (int, error) {
 		if strings.TrimSpace(cc[i]) == "" {
 			continue
 		}
-		if params.Verb {
-			fmt.Printf("%s\n", cc[i])
+		if uargv.Verbose {
+			fmt.Println(cc[i])
 			start = time.Now()
 		}
-		if params.Exec {
+		if uargv.Execute {
 			_, err = db.Exec(cc[i])
 		} else {
 			err = db.Ping()
@@ -69,21 +32,27 @@ func ExecLines(db *sql.DB, cc []string, params ExecParams) (int, error) {
 		if err != nil {
 			return done, err
 		}
-		if params.Verb {
+		if uargv.Verbose && uargv.Execute {
 			elapsed := time.Since(start)
-			if params.Exec {
-				fmt.Printf(
-					"\033[4;32mQuery completed in %s.\033[0m\n\n",
-					elapsed.String())
-			}
+			cmn.CndPrintfln(
+				uargv.Raw,
+				cmn.PrintflnSuccess,
+				"Query completed in %v.", elapsed)
 		}
 		done++
+	}
+
+	if done == 0 {
+		cmn.CndPrintln(
+			uargv.Raw,
+			cmn.PrintflnSuccess,
+			"Already up to date.")
 	}
 
 	return done, nil
 }
 
-func ExecFile(db *sql.DB, filePath string, params ExecParams) error {
+func ExecFile(db *sql.DB, filePath string, uargv *cmn.Args) error {
 
 	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -93,27 +62,30 @@ func ExecFile(db *sql.DB, filePath string, params ExecParams) error {
 	script := string(b)
 	var t time.Time
 
-	if params.Exec {
+	if uargv.Verbose {
 		t = time.Now()
+		fmt.Println(filePath)
+	}
+
+	if uargv.Execute {
 		_, err = db.Exec(script)
 		if err != nil {
-			return fmt.Errorf("in %s: %s", filePath, err.Error())
+			return err
 		}
 	}
 
-	if params.Verb {
-		fmt.Print(filePath)
-		if params.Exec {
-			el := time.Since(t)
-			fmt.Printf(" in %s", el.String())
-		}
-		fmt.Println()
+	if uargv.Verbose && uargv.Execute {
+		el := time.Since(t)
+		cmn.CndPrintfln(
+			uargv.Raw,
+			cmn.PrintflnSuccess,
+			"Query completed in %v.", el)
 	}
 
 	return nil
 }
 
-func ExecDir(db *sql.DB, dirPath string, params ExecParams) error {
+func ExecDir(db *sql.DB, dirPath string, uargv *cmn.Args) error {
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
 		return err
@@ -126,7 +98,7 @@ func ExecDir(db *sql.DB, dirPath string, params ExecParams) error {
 		}
 		if fi.IsDir() {
 
-			if err = ExecDir(db, newpath, params); err != nil {
+			if err = ExecDir(db, newpath, uargv); err != nil {
 				return err
 			}
 
@@ -136,7 +108,7 @@ func ExecDir(db *sql.DB, dirPath string, params ExecParams) error {
 				continue
 			}
 
-			if err = ExecFile(db, newpath, params); err != nil {
+			if err = ExecFile(db, newpath, uargv); err != nil {
 				return err
 			}
 
@@ -145,22 +117,22 @@ func ExecDir(db *sql.DB, dirPath string, params ExecParams) error {
 	return nil
 }
 
-func ExecPath(db *sql.DB, path string, params ExecParams) error {
+func ExecPath(db *sql.DB, path string, uargv *cmn.Args) error {
 	fi, err := os.Lstat(path)
 	if err != nil {
 		return err
 	}
 	if fi.IsDir() {
-		return ExecDir(db, path, params)
+		return ExecDir(db, path, uargv)
 	} else {
-		return ExecFile(db, path, params)
+		return ExecFile(db, path, uargv)
 	}
 }
 
-func ExecPaths(db *sql.DB, paths []string, params ExecParams) error {
+func ExecPaths(db *sql.DB, paths []string, uargv *cmn.Args) error {
 	var err error
 	for i := 0; i < len(paths); i++ {
-		if err = ExecPath(db, paths[i], params); err != nil {
+		if err = ExecPath(db, paths[i], uargv); err != nil {
 			return err
 		}
 	}
