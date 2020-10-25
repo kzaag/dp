@@ -5,9 +5,70 @@ import (
 	"database-project/rdbms"
 	"database/sql"
 	"fmt"
-	"path"
-	"strings"
+	"syscall"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
+
+func __TargetGetCS(target *cmn.Target) (string, error) {
+
+	if target.ConnectionString != "" {
+		return target.ConnectionString, nil
+	}
+
+	if target.Password == "" {
+		fmt.Printf("password for %s: ", target.Name)
+		bytes, err := terminal.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			return "", err
+		}
+		fmt.Println()
+		target.Password = string(bytes)
+	}
+
+	host := ""
+	if target.Server != "" {
+		host = fmt.Sprintf("host=%s", target.Server)
+	}
+	user := ""
+	if target.User != "" {
+		user = fmt.Sprintf("user=%s", target.User)
+	}
+	password := ""
+	if target.Password != "" {
+		password = fmt.Sprintf("password=%s", target.Password)
+	}
+	database := ""
+	if target.Database != "" {
+		database = fmt.Sprintf("dbname=%s", target.Database)
+	}
+
+	cs := fmt.Sprintf(
+		"%s %s %s %s",
+		host,
+		user,
+		password,
+		database)
+
+	if target.Args != nil {
+		for k := range target.Args {
+			cs += fmt.Sprintf(" %s=%s", k, target.Args[k])
+		}
+	}
+
+	return cs, nil
+}
+
+func __TargetGetDB(target *cmn.Target) (*sql.DB, error) {
+	var cs string
+	var err error
+
+	if cs, err = __TargetGetCS(target); err != nil {
+		return nil, err
+	}
+
+	return sql.Open("postgres", cs)
+}
 
 func __TargetGetMergeScript(db *sql.DB, ectx *cmn.Target, args []string) (string, error) {
 	ts := rdbms.MergeTableCtx{}
@@ -45,87 +106,9 @@ func __TargetGetMergeScript(db *sql.DB, ectx *cmn.Target, args []string) (string
 	return mergeScript, nil
 }
 
-func __TargetFixAbsPaths(basepath string, paths []string) {
-	var i int
-	var p *string
-	for i = 0; i < len(paths); i++ {
-		p = &paths[i]
-		if !path.IsAbs(*p) {
-			*p = path.Join(basepath, *p)
-		}
-	}
-}
-
-func TargetRunSingle(basepath string, target *cmn.Target, uargv *cmn.Args) error {
-	var err error
-	var db *sql.DB
-	var userExecute bool
-
-	if db, err = CSCreateDBfromConfig(target); err != nil {
-		return err
-	}
-
-	defer db.Close()
-
-	for i, e := range target.Exec {
-
-		if e.Execute {
-			/* override user execute */
-			userExecute = uargv.Execute
-			uargv.Execute = e.Execute
-		}
-
-		if uargv.Verbose {
-			cmn.CndPrintfln(
-				uargv.Raw,
-				cmn.PrintflnNotify,
-				"TARGET %s: %s:%s@%s exec: %d/%s",
-				target.Name, target.User, target.Database, target.Server, i, e.Type)
-		}
-
-		switch e.Type {
-		case "merge":
-			__TargetFixAbsPaths(basepath, e.Args)
-			script := ""
-			script, err = __TargetGetMergeScript(db, target, e.Args)
-			if err != nil {
-				break
-			}
-			cc := strings.Split(script, ";\n")
-			_, err = rdbms.ExecLines(db, cc, uargv)
-		case "stmt":
-			_, err = rdbms.ExecLines(db, e.Args, uargv)
-		case "script":
-			__TargetFixAbsPaths(basepath, e.Args)
-			err = rdbms.ExecPaths(db, e.Args, uargv)
-		}
-
-		if e.Execute {
-			/* restore user execute */
-			uargv.Execute = userExecute
-		}
-
-		if err != nil {
-			switch e.Err {
-			case "ignore":
-				break
-			case "warn":
-				cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "%v.", err)
-			default:
-				cmn.CndPrintError(uargv.Raw, err)
-				return fmt.Errorf("Terminated execution due to errors")
-			}
-		}
-	}
-	return nil
-}
-
-func TargetRunFromConfig(config *cmn.Config, uargs *cmn.Args) error {
-	var err error
-	for _, target := range config.Targets {
-		if err = TargetRunSingle(config.Base, target, uargs); err != nil {
-			return err
-		}
-	}
-	return err
+func TargetNew() *rdbms.TargetCtx {
+	ctx := rdbms.TargetCtx{}
+	ctx.GetDB = __TargetGetDB
+	ctx.GetMergeScript = __TargetGetMergeScript
+	return &ctx
 }

@@ -6,7 +6,18 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
+
+type DDObject struct {
+	Table *Table
+}
+
+type ParseCtx struct {
+	Stmt *StmtCtx
+	ret  []DDObject
+}
 
 /*
 
@@ -201,52 +212,6 @@ func ParserValidateTable(ctx *StmtCtx, t *Table, f string) error {
 	return nil
 }
 
-// func ParserIterateOverSource(
-// 	sourcePath string,
-// 	cb func(path string, fc []byte, args interface{}) error,
-// 	args interface{}) error {
-
-// 	files, err := ioutil.ReadDir(sourcePath)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	length := len(files)
-// 	defs := make([][]byte, length)
-// 	allowedLen := 0
-// 	for i := 0; i < length; i++ {
-// 		name := path.Join(sourcePath, files[i].Name())
-// 		isDir, err := ParserIsDirectory(name)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if !isDir && strings.HasSuffix(name, ".yml") {
-// 			content, err := ioutil.ReadFile(name)
-// 			defs[i] = content
-// 			if len(content) == 0 {
-// 				return fmt.Errorf("%s - empty file content", name)
-// 			}
-// 			if err != nil {
-// 				return err
-// 			}
-// 			allowedLen++
-// 		} else {
-// 			defs[i] = nil
-// 		}
-// 	}
-
-// 	ci := 0
-// 	for i := 0; i < length; i++ {
-// 		if defs[i] != nil {
-// 			name := path.Join(sourcePath, files[i].Name())
-// 			if err = cb(name, defs[i], args); err != nil {
-// 				return err
-// 			}
-// 			ci++
-// 		}
-// 	}
-// 	return nil
-// }
-
 func ParserIterateOverSource(
 	sourcePath string,
 	cb func(path string, fc []byte, args interface{}) error,
@@ -282,4 +247,29 @@ func ParserIterateOverSource(
 		return fmt.Errorf("%s - empty file content", sourcePath)
 	}
 	return cb(sourcePath, fc, args)
+}
+
+func ParserGetValidateTable(path string, fc []byte, args interface{}) error {
+	var err error
+	var obj DDObject
+	ctx := args.(*ParseCtx)
+	err = yaml.Unmarshal(fc, &obj)
+	if err != nil {
+		return fmt.Errorf("couldnt unmarshal %s %s", path, err.Error())
+	}
+	if err = ParserValidateTable(ctx.Stmt, obj.Table, path); err != nil {
+		return err
+	}
+	ctx.ret = append(ctx.ret, obj)
+	return err
+}
+
+func ParserGetTablesInDir(ctx *StmtCtx, dir string) ([]DDObject, error) {
+	parser := ParseCtx{}
+	parser.Stmt = ctx
+	err := ParserIterateOverSource(dir, ParserGetValidateTable, &parser)
+	if err != nil {
+		return nil, err
+	}
+	return parser.ret, err
 }

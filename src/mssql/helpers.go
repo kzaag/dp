@@ -6,7 +6,7 @@ import (
 )
 
 // split {schema}.{name} sql name into 2 parts
-func SplitSchemaName(name string) (string, string, error) {
+func HelperSplitSchemaName(name string) (string, string, error) {
 	if name == "" || !strings.Contains(name, ".") {
 		return "", "", fmt.Errorf("invalid sql name. expected: {schema}.{name} got: \"" + name + "\"")
 	}

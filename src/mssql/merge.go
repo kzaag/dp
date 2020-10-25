@@ -1,61 +1,69 @@
 package mssql
 
-func SqlMergeTables(mrg *SqlMergeCtx) {
+import "database-project/rdbms"
+
+func Merge(ctx *rdbms.StmtCtx, ts *rdbms.MergeTableCtx) (string, error) {
+
+	ss := &rdbms.MergeScriptCtx{}
 
 	var devnull string
 
-	for i := 0; i < len(mrg.localTables); i++ {
-		if t := SqlMergeFindTable(mrg.localTables[i].Name, mrg.remTables); t == nil {
-			*mrg.create += mrg.CreateTable(&mrg.localTables[i])
+	for i := 0; i < len(ts.LocalTables); i++ {
+		if t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables); t == nil {
+			*ss.Create += ctx.CreateTable(&ts.LocalTables[i])
 		}
 	}
 
-	drop := mrg.drop
+	drop := ss.Drop
+	ss.Drop = &devnull
 
-	mrg.drop = &devnull
+	for i := 0; i < len(ts.LocalTables); i++ {
 
-	for i := 0; i < len(mrg.localTables); i++ {
-
-		t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables)
-		MergeColumns(rem, mrg, &mrg.localTables[i], t)
-
-	}
-
-	mrg.drop = drop
-
-	for i := 0; i < len(mrg.localTables); i++ {
-
-		t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables)
-		MergePrimary(rem, mrg, &mrg.localTables[i], t)
+		t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		rdbms.MergeColumns(ctx, &ts.LocalTables[i], t, ts, ss)
 
 	}
 
-	for i := 0; i < len(mrg.localTables); i++ {
+	ss.Drop = drop
 
-		t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables)
-		MergeUnique(rem, mrg, &mrg.localTables[i], t)
+	for i := 0; i < len(ts.LocalTables); i++ {
 
-	}
-
-	for i := 0; i < len(mrg.localTables); i++ {
-
-		t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables)
-		MergeFK(rem, mrg, &mrg.localTables[i], t)
-		MergeCheck(rem, mrg, &mrg.localTables[i], t)
-		MergeIx(rem, mrg, &mrg.localTables[i], t)
+		t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		rdbms.MergePrimary(ctx, &ts.LocalTables[i], t, ss, ts)
 
 	}
 
-	create := mrg.create
-	mrg.create = &devnull
+	for i := 0; i < len(ts.LocalTables); i++ {
 
-	for i := 0; i < len(mrg.localTables); i++ {
-
-		t := MergeFindTable(mrg.localTables[i].Name, mrg.remTables)
-		MergeColumns(rem, mrg, &mrg.localTables[i], t)
+		t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		rdbms.MergeUnique(ctx, &ts.LocalTables[i], t, ss)
 
 	}
 
-	mrg.create = create
+	for i := 0; i < len(ts.LocalTables); i++ {
 
+		t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		rdbms.MergeFK(ctx, &ts.LocalTables[i], t, ss)
+		rdbms.MergeCheck(ctx, &ts.LocalTables[i], t, ss)
+		rdbms.MergeIx(ctx, &ts.LocalTables[i], t, ss)
+
+	}
+
+	create := ss.Create
+	ss.Create = &devnull
+
+	for i := 0; i < len(ts.LocalTables); i++ {
+
+		t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		rdbms.MergeColumns(ctx, &ts.LocalTables[i], t, ts, ss)
+
+	}
+
+	ss.Create = create
+
+	cmd := ""
+	cmd += *ss.Drop
+	cmd += *ss.Create
+
+	return cmd, nil
 }

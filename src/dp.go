@@ -2,7 +2,9 @@ package main
 
 import (
 	"database-project/cmn"
+	"database-project/mssql"
 	"database-project/pgsql"
+	"database-project/rdbms"
 	"fmt"
 	"os"
 
@@ -34,9 +36,11 @@ func main() {
 	*/
 	switch c.Driver {
 	case "postgres":
-		err = pgsql.TargetRunFromConfig(c, args)
+		ctx := pgsql.TargetNew()
+		err = rdbms.TargetRunFromConfig(ctx, c, args)
 	case "mssql":
-		err = fmt.Errorf("work in progress")
+		ctx := mssql.TargetNew()
+		err = rdbms.TargetRunFromConfig(ctx, c, args)
 	default:
 		err = fmt.Errorf("Unkown driver: %s", c.Driver)
 	}

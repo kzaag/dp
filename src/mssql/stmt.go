@@ -1,13 +1,30 @@
 package mssql
 
 import (
+	"database-project/rdbms"
 	"strconv"
 	"strings"
-
-	"github.com/kzaag/database-project/src/sql"
 )
 
-func ColumnTypeStr(column *sql.Column) string {
+func StmtNew() *rdbms.StmtCtx {
+	ctx := rdbms.StmtCtx{}
+	ctx.AddCheck = rdbms.StmtAddCheck
+	ctx.AddColumn = StmtAddColumn
+	ctx.AddFK = rdbms.StmtAddFk
+	ctx.AddIndex = StmtCreateIx
+	ctx.AddPK = rdbms.StmtAddPK
+	ctx.AddUnique = rdbms.StmtAddUnique
+	ctx.AlterColumn = StmtAlterColumn
+	ctx.ColumnType = StmtColumnType
+	ctx.CreateTable = StmtCreateTable
+	ctx.DropColumn = StmtDropColumn
+	ctx.DropConstraint = rdbms.StmtDropConstraint
+	ctx.DropIndex = StmtDropIx
+	ctx.DropTable = rdbms.StmtDropTable
+	return &ctx
+}
+
+func StmtColumnType(column *rdbms.Column) string {
 	cs := ""
 	switch strings.ToLower(column.Type) {
 	case "nvarchar":
@@ -48,7 +65,7 @@ func ColumnTypeStr(column *sql.Column) string {
 	return strings.ToUpper(cs)
 }
 
-func AddIxStr(tableName string, ix *sql.Index) string {
+func StmtCreateIx(tableName string, ix *rdbms.Index) string {
 	unique := ""
 	if ix.Is_unique {
 		unique = "UNIQUE "
@@ -105,21 +122,21 @@ func AddIxStr(tableName string, ix *sql.Index) string {
 	return ret
 }
 
-func DropIxStr(tableName string, i *sql.Index) string {
+func StmtDropIx(tableName string, i *rdbms.Index) string {
 	return "DROP INDEX " + i.Name + " ON " + tableName + ";\n"
 }
 
-func AlterTableColumnStr(tableName string, c *sql.Column) string {
-	s := c.Name + " " + c.FullType
+func StmtAlterColumn(tableName string, old, new *rdbms.Column) string {
+	s := new.Name + " " + new.FullType
 
-	if !c.Nullable {
+	if !new.Nullable {
 		s += " NOT NULL"
 	}
 
 	return "ALTER TABLE " + tableName + " ALTER COLUMN " + s + ";\n"
 }
 
-func ColumnStr(column *sql.Column) string {
+func StmtDefColumn(column *rdbms.Column) string {
 
 	var cs string
 	cs += column.Name + " " + column.FullType
@@ -137,15 +154,27 @@ func ColumnStr(column *sql.Column) string {
 	return cs
 }
 
-func OP_AddColumn(tableName string, c *sql.Column) string {
-	s := ColumnStr(c)
-	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
+func StmtAddColumn(tableName string, c *rdbms.Column) string {
+	return "ALTER TABLE " + tableName + " ADD " + StmtDefColumn(c) + ";\n"
 }
 
-func OP_AlterColumn(parentName string, old *sql.Column, new *sql.Column) string {
-	return AlterTableColumnStr(parentName, new)
+func StmtDropColumn(tablename string, c *rdbms.Column) string {
+	return "ALTER TABLE " + tablename + " DROP COLUMN " + c.Name + ";\n"
 }
 
-func RemoteDropColumn(typename string, c *sql.Column) string {
-	return "ALTER TABLE " + tableName + " DROP COLUMN " + c.Name + ";\n"
+func StmtCreateTable(t *rdbms.Table) string {
+	ret := ""
+
+	ret += "CREATE TABLE " + t.Name + " ( \n"
+
+	for i := 0; i < len(t.Columns); i++ {
+		column := &t.Columns[i]
+		columnStr := StmtDefColumn(column)
+		ret += "\t" + columnStr + ",\n"
+	}
+
+	ret = strings.TrimSuffix(ret, ",\n")
+	ret += "\n);\n"
+
+	return ret
 }
