@@ -13,7 +13,7 @@ go to the path with cloned project, build it and enter output directory:
 ```make && cd bin```  
 now to execute dp type in following   
 ```./dp -c pg/conf.yml -v ```  
-- -c    the configuration file path. You can provide directory (then first found .yml file will be   
+- -c    the configuration file path. You can provide directory (then first found .yml file will be used  
 - -v    Some extra-verbose logging.  
       
 > Note that database dp will be created during this process,  
