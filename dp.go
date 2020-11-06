@@ -1,12 +1,13 @@
 package main
 
 import (
-	"database-project/cmn"
-	"database-project/mssql"
-	"database-project/pgsql"
-	"database-project/rdbms"
 	"fmt"
 	"os"
+
+	"github.com/kzaag/dp/cmn"
+	"github.com/kzaag/dp/mssql"
+	"github.com/kzaag/dp/pgsql"
+	"github.com/kzaag/dp/rdbms"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/lib/pq"

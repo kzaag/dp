@@ -1,8 +1,9 @@
 package pgsql
 
 import (
-	"database-project/rdbms"
 	"database/sql"
+
+	"github.com/kzaag/dp/rdbms"
 )
 
 func HelperTypeExists(t *Type, localTypes []Type) bool {

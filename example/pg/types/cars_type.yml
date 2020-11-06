@@ -6,6 +6,3 @@ type:
       type: int
     - name: name
       type: text
-
-
-      

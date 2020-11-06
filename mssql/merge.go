@@ -1,6 +1,6 @@
 package mssql
 
-import "database-project/rdbms"
+import "github.com/kzaag/dp/rdbms"
 
 func Merge(ctx *rdbms.StmtCtx, ts *rdbms.MergeTableCtx) (string, error) {
 

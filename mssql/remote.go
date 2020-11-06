@@ -2,8 +2,9 @@ package mssql
 
 import (
 	"container/list"
-	"database-project/rdbms"
 	"database/sql"
+
+	"github.com/kzaag/dp/rdbms"
 )
 
 func RemoteGetAllUnique(db *sql.DB, tableName string) ([]rdbms.Unique, error) {

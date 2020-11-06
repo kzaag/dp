@@ -2,7 +2,8 @@ package pgsql
 
 import (
 	"container/list"
-	"database-project/rdbms"
+
+	"github.com/kzaag/dp/rdbms"
 )
 
 type MergeTypeCtx struct {

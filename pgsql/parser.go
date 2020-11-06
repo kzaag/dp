@@ -1,9 +1,10 @@
 package pgsql
 
 import (
-	"database-project/rdbms"
 	"fmt"
 	"strings"
+
+	"github.com/kzaag/dp/rdbms"
 
 	"gopkg.in/yaml.v2"
 )

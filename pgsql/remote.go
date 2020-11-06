@@ -2,8 +2,9 @@ package pgsql
 
 import (
 	"container/list"
-	"database-project/rdbms"
 	"database/sql"
+
+	"github.com/kzaag/dp/rdbms"
 )
 
 func RemoteGetEnum(db *sql.DB) ([]Type, error) {

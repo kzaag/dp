@@ -1,9 +1,10 @@
 package pgsql
 
 import (
-	"database-project/rdbms"
 	"strconv"
 	"strings"
+
+	"github.com/kzaag/dp/rdbms"
 )
 
 type StmtCtx struct {

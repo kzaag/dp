@@ -1,11 +1,13 @@
 package mssql
 
 import (
-	"database-project/cmn"
-	"database-project/rdbms"
 	"database/sql"
 	"fmt"
 	"syscall"
+
+	"github.com/kzaag/dp/rdbms"
+
+	"github.com/kzaag/dp/cmn"
 
 	"golang.org/x/crypto/ssh/terminal"
 )

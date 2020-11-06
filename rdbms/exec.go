@@ -1,7 +1,6 @@
 package rdbms
 
 import (
-	"database-project/cmn"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -9,6 +8,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/kzaag/dp/cmn"
 )
 
 func ExecLines(db *sql.DB, cc []string, uargv *cmn.Args) (int, error) {

@@ -1,11 +1,12 @@
 package pgsql
 
 import (
-	"database-project/cmn"
-	"database-project/rdbms"
 	"database/sql"
 	"fmt"
 	"syscall"
+
+	"github.com/kzaag/dp/cmn"
+	"github.com/kzaag/dp/rdbms"
 
 	"golang.org/x/crypto/ssh/terminal"
 )

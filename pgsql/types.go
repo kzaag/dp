@@ -1,6 +1,6 @@
 package pgsql
 
-import "database-project/rdbms"
+import "github.com/kzaag/dp/rdbms"
 
 const (
 	TT_Enum      string = "enum"

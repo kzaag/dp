@@ -1,9 +1,10 @@
 package mssql
 
 import (
-	"database-project/rdbms"
 	"strconv"
 	"strings"
+
+	"github.com/kzaag/dp/rdbms"
 )
 
 func StmtNew() *rdbms.StmtCtx {

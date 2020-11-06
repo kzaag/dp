@@ -1,11 +1,12 @@
 package rdbms
 
 import (
-	"database-project/cmn"
 	"database/sql"
 	"fmt"
 	"path"
 	"strings"
+
+	"github.com/kzaag/dp/cmn"
 )
 
 type TargetCtx struct {
