@@ -37,10 +37,10 @@ func main() {
 	*/
 	switch c.Driver {
 	case "postgres":
-		ctx := pgsql.TargetNew()
+		ctx := pgsql.TargetCtxNew()
 		err = rdbms.TargetRunFromConfig(ctx, c, args)
 	case "mssql":
-		ctx := mssql.TargetNew()
+		ctx := mssql.TargetCtxNew()
 		err = rdbms.TargetRunFromConfig(ctx, c, args)
 	default:
 		err = fmt.Errorf("Unkown driver: %s", c.Driver)

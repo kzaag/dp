@@ -92,7 +92,7 @@ func TargetGetDB(target *cmn.Target) (*sql.DB, error) {
 	return sql.Open("postgres", cs)
 }
 
-func TargetNew() *rdbms.TargetCtx {
+func TargetCtxNew() *rdbms.TargetCtx {
 	ctx := rdbms.TargetCtx{}
 	ctx.GetDB = TargetGetDB
 	ctx.GetMergeScript = TargetGetMergeScript

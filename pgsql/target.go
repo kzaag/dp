@@ -107,7 +107,7 @@ func TargetGetMergeScript(db *sql.DB, ectx *cmn.Target, args []string) (string, 
 	return mergeScript, nil
 }
 
-func TargetNew() *rdbms.TargetCtx {
+func TargetCtxNew() *rdbms.TargetCtx {
 	ctx := rdbms.TargetCtx{}
 	ctx.GetDB = TargetGetDB
 	ctx.GetMergeScript = TargetGetMergeScript
