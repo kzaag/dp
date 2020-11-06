@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-func __TargetGetCS(target *cmn.Target) (string, error) {
+func TargetGetCS(target *cmn.Target) (string, error) {
 
 	if target.ConnectionString != "" {
 		return target.ConnectionString, nil
@@ -60,18 +60,18 @@ func __TargetGetCS(target *cmn.Target) (string, error) {
 	return cs, nil
 }
 
-func __TargetGetDB(target *cmn.Target) (*sql.DB, error) {
+func TargetGetDB(target *cmn.Target) (*sql.DB, error) {
 	var cs string
 	var err error
 
-	if cs, err = __TargetGetCS(target); err != nil {
+	if cs, err = TargetGetCS(target); err != nil {
 		return nil, err
 	}
 
 	return sql.Open("postgres", cs)
 }
 
-func __TargetGetMergeScript(db *sql.DB, ectx *cmn.Target, args []string) (string, error) {
+func TargetGetMergeScript(db *sql.DB, ectx *cmn.Target, args []string) (string, error) {
 	ts := rdbms.MergeTableCtx{}
 	tt := MergeTypeCtx{}
 	ctx := StmtNew()
@@ -109,7 +109,7 @@ func __TargetGetMergeScript(db *sql.DB, ectx *cmn.Target, args []string) (string
 
 func TargetNew() *rdbms.TargetCtx {
 	ctx := rdbms.TargetCtx{}
-	ctx.GetDB = __TargetGetDB
-	ctx.GetMergeScript = __TargetGetMergeScript
+	ctx.GetDB = TargetGetDB
+	ctx.GetMergeScript = TargetGetMergeScript
 	return &ctx
 }
