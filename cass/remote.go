@@ -81,11 +81,11 @@ func RemoteGetPK(
 	}
 
 	sort.Slice(pk.PartitionColumns, func(i, j int) bool {
-		return pk.PartitionColumns[i].Position > pk.PartitionColumns[j].Position
+		return pk.PartitionColumns[i].Position < pk.PartitionColumns[j].Position
 	})
 
 	sort.Slice(pk.ClusteringColumns, func(i, j int) bool {
-		return pk.ClusteringColumns[i].Position > pk.ClusteringColumns[j].Position
+		return pk.ClusteringColumns[i].Position < pk.ClusteringColumns[j].Position
 	})
 
 	return &pk, nil

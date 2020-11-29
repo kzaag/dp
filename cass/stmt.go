@@ -107,12 +107,12 @@ func StmtCreateMaterializedView(m *MaterializedView) string {
 	if len(m.Columns) == 0 {
 		s += "\tselect * from " + m.Base + "\n"
 	} else {
-		s += "\tselect "
+		s += "\tselect\n"
 		for k := range m.Columns {
 			s += fmt.Sprintf("\t\t%s,\n", k)
 		}
 		s = strings.TrimSuffix(s, ",\n")
-		s += "\tfrom " + m.Base + "\n"
+		s += "\n\tfrom " + m.Base + "\n"
 	}
 	s += "\twhere " + m.WhereClause + "\n"
 	s += "\t" + StmtPKDef(m.PrimaryKey)

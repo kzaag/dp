@@ -1,6 +1,8 @@
 package cass
 
-import "strings"
+import (
+	"strings"
+)
 
 type MergeTableCtx struct {
 	RemoteTables map[string]*Table
@@ -59,6 +61,14 @@ func MergeCmpPK(p1, p2 *PrimaryKey) bool {
 	}
 	return true
 }
+
+// func MergeDropColumnRefs(
+// 	stmt *StmtCtx,
+// 	sctx *MergeScriptCtx,
+
+// ) {
+
+// }
 
 func MergeColumns(
 	stmt *StmtCtx,
