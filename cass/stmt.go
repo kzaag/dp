@@ -47,7 +47,7 @@ func StmtAlterColumn(
 
 func StmtDropColumn(tablename string, c1 *Column) string {
 	return fmt.Sprintf(
-		"alter table %s drop %s",
+		"alter table %s drop %s;\n",
 		tablename,
 		c1.Name,
 	)

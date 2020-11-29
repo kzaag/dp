@@ -65,6 +65,7 @@ func MergeColumns(
 	sctx *MergeScriptCtx,
 	lt, rt *Table,
 	tctx *MergeTableCtx,
+	vctx *MergeViewCtx,
 ) {
 	// iterate on local columns
 	for lc := range lt.Columns {
@@ -83,9 +84,19 @@ func MergeColumns(
 		if _, ok := lt.Columns[rc]; !ok {
 			// if local schema doesnt contain remote column
 			// then drop it from database
+			droppedViews := make([]string, 0, 10)
+			for rvk := range vctx.RemoteViews {
+				if vctx.RemoteViews[rvk].Base != lt.Name {
+					continue
+				}
+				MergeAddOperation(sctx.Drop, stmt.DropMaterializedView(vctx.RemoteViews[rvk]))
+				droppedViews = append(droppedViews, rvk)
+			}
 			MergeAddOperation(sctx.Drop, stmt.DropColumn(lt.Name, rt.Columns[rc]))
-			for ixk := range lt.SASIIndexes {
-				MergeAddOperation(sctx.Create, stmt.DropIndex(lt.SASIIndexes[ixk].Name))
+			for _, dvk := range droppedViews {
+				if dv, ok := vctx.LocalViews[dvk]; ok {
+					MergeAddOperation(sctx.Create, stmt.CreateMaterializedView(dv))
+				}
 			}
 		}
 	}
@@ -124,6 +135,7 @@ func MergeTables(
 	stmt *StmtCtx,
 	tctx *MergeTableCtx,
 	sctx *MergeScriptCtx,
+	vctx *MergeViewCtx,
 ) {
 	for k := range tctx.LocalTables {
 		lt := tctx.LocalTables[k]
@@ -133,7 +145,7 @@ func MergeTables(
 			// if primary key differs
 			// then we dont have other choice than to recreate the table
 			if MergeCmpPK(lt.PrimaryKey, rt.PrimaryKey) {
-				MergeColumns(stmt, sctx, lt, rt, tctx)
+				MergeColumns(stmt, sctx, lt, rt, tctx, vctx)
 				MergeSASIIndexes(stmt, sctx, lt, rt)
 			} else {
 				for ixk := range lt.SASIIndexes {
@@ -193,7 +205,7 @@ func Merge(
 	sctx.Create = &create
 	sctx.Drop = &drop
 
-	MergeTables(stmt, tctx, &sctx)
+	MergeTables(stmt, tctx, &sctx, vctx)
 
 	MergeViews(stmt, vctx, &sctx)
 
