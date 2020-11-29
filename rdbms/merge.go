@@ -9,16 +9,6 @@ import (
 	generating differential script based on local vs rem schema
 */
 
-// func (m *MergeCtx) SetLocalSchema(t []Table, tp []Type) {
-// 	m.localTables = t
-// 	m.localTypes = tp
-// }
-
-// func (m *MergeCtx) SetRemoteSchema(t []Table, tp []Type) {
-// 	m.remTables = t
-// 	m.remTypes = tp
-// }
-
 const (
 	DC_TYPE_PK = iota
 	DC_TYPE_FK = iota
@@ -28,7 +18,7 @@ const (
 )
 
 /*
-	Golang, why dont you implement unions, Whyyyyyy...!
+	Golang, why dont you implement unions
 */
 type MergeDropCtx struct {
 	Table   string

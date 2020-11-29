@@ -14,7 +14,7 @@ type TargetCtx struct {
 	GetDB          func(*cmn.Target) (*sql.DB, error)
 }
 
-func __TargetFixAbsPaths(basepath string, paths []string) {
+func targetFixAbsPaths(basepath string, paths []string) {
 	var i int
 	var p *string
 	for i = 0; i < len(paths); i++ {
@@ -54,7 +54,7 @@ func TargetRunSingle(ctx *TargetCtx, basepath string, target *cmn.Target, uargv 
 
 		switch e.Type {
 		case "merge":
-			__TargetFixAbsPaths(basepath, e.Args)
+			targetFixAbsPaths(basepath, e.Args)
 			script := ""
 			script, err = ctx.GetMergeScript(db, target, e.Args)
 			if err != nil {
@@ -65,7 +65,7 @@ func TargetRunSingle(ctx *TargetCtx, basepath string, target *cmn.Target, uargv 
 		case "stmt":
 			_, err = ExecLines(db, e.Args, uargv)
 		case "script":
-			__TargetFixAbsPaths(basepath, e.Args)
+			targetFixAbsPaths(basepath, e.Args)
 			err = ExecPaths(db, e.Args, uargv)
 		}
 
