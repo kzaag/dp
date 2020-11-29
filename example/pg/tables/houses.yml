@@ -19,3 +19,7 @@ table:
       ref_table: users
       ref_columns:
         - name: id
+  unique:
+    - name: "test_unique"
+      columns:
+        - name: name
