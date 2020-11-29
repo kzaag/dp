@@ -1,4 +1,4 @@
-package cql
+package cass
 
 type Column struct {
 	Name string
@@ -20,20 +20,20 @@ type PKPartitionColumn struct {
 }
 
 type PrimaryKey struct {
-	PartitionColumns  []PKPartitionColumn
-	ClusteringColumns []PKClusteringColumn
+	PartitionColumns  []PKPartitionColumn  `yaml:"partition"`
+	ClusteringColumns []PKClusteringColumn `yaml:"clustering"`
 }
 
 type Table struct {
 	Name       string
 	Columns    map[string]*Column
-	PrimaryKey *PrimaryKey
+	PrimaryKey *PrimaryKey `yaml:"primary"`
 }
 
 type MaterializedView struct {
 	Name        string
 	Base        string
 	Columns     map[string]*Column
-	WhereClause string
-	PrimaryKey  *PrimaryKey
+	WhereClause string      `yaml:"where"`
+	PrimaryKey  *PrimaryKey `yaml:"primary"`
 }

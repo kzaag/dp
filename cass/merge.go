@@ -1,13 +1,27 @@
-package cql
+package cass
 
 type MergeTableCtx struct {
 	RemoteTables map[string]*Table
 	LocalTables  map[string]*Table
 }
 
+func MergeTableCtxNew() *MergeTableCtx {
+	ret := new(MergeTableCtx)
+	ret.LocalTables = make(map[string]*Table)
+	ret.RemoteTables = make(map[string]*Table)
+	return ret
+}
+
 type MergeViewCtx struct {
 	RemoteViews map[string]*MaterializedView
 	LocalViews  map[string]*MaterializedView
+}
+
+func MergeViewCtxNew() *MergeViewCtx {
+	ret := new(MergeViewCtx)
+	ret.LocalViews = make(map[string]*MaterializedView)
+	ret.RemoteViews = make(map[string]*MaterializedView)
+	return ret
 }
 
 type MergeScriptCtx struct {
@@ -77,7 +91,7 @@ func MergeTables(
 			// remote table exists
 
 			// if primary key differs
-			// then we dont have other choise than to recreate the table
+			// then we dont have other choice than to recreate the table
 			if MergeCmdPK(lt.PrimaryKey, rt.PrimaryKey) {
 
 				MergeColumns(stmt, sctx, lt, rt)
@@ -98,7 +112,24 @@ func MergeViews(
 	vctx *MergeViewCtx,
 	sctx *MergeScriptCtx,
 ) {
-	//
+	for k := range vctx.LocalViews {
+		lv := vctx.LocalViews[k]
+		if rv, ok := vctx.RemoteViews[k]; ok {
+			if !MergeCmdPK(lv.PrimaryKey, rv.PrimaryKey) {
+				*sctx.Drop += stmt.DropMaterializedView(lv)
+				*sctx.Create += stmt.CreateMaterializedView(rv)
+			}
+		} else {
+			// remote table doesnt exist
+			*sctx.Create += stmt.CreateMaterializedView(lv)
+		}
+	}
+	for k := range vctx.RemoteViews {
+		rv := vctx.RemoteViews[k]
+		if _, ok := vctx.LocalViews[k]; !ok {
+			*sctx.Drop += stmt.DropMaterializedView(rv)
+		}
+	}
 }
 
 func Merge(

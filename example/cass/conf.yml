@@ -1,0 +1,36 @@
+driver: cassandra
+
+base_target: &base_target
+  server: ["127.0.0.1"]
+  args:
+    timeout: 10
+    retries: 10
+    interval: 2
+
+targets:
+  - name: master
+    << : *base_target
+    exec:
+      - type: stmt
+        args: ["create keyspace dp with replication = {'class' : 'SimpleStrategy', 'replication_factor': 1};"]
+        # if database exists and this returns error, 
+        # then print error information, but proceed with execution.
+        # alternatives are: 
+        #   ignore          - completely ignore error. 
+        #   raise (default) - stop execution 
+        err: warn
+        # execute:true means that execution will always take place.
+        # even if running dry-run.
+        # this is used so database will be created and following merge will take place.
+        execute: true
+
+  - name: dp
+    << : *base_target
+    database: dp
+    exec:
+      - type: merge
+        args: ["users.yml", "roles.yml", "role_name.yml"]
+      - type: stmt
+        # it wont return anything since we dont read data, 
+        # but query will execute nontheless and errors will be returned.
+        args: ["select * from users"]

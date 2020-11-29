@@ -1,4 +1,4 @@
-package cql
+package cass
 
 import (
 	"sort"
@@ -34,7 +34,7 @@ func RemoteGetPK(
 ) (*PrimaryKey, error) {
 	const q = `select 
 			column_name, 
-			clustering order, 
+			clustering_order, 
 			kind, 
 			position
 		from system_schema.columns 
@@ -112,9 +112,9 @@ func RemoteGetTable(
 func RemoteGetMatchingTables(
 	sess *gocql.Session,
 	db string,
-	tables []Table,
-) ([]Table, error) {
-	const q = "select name from system_schema.tables where keyspace_name = ?"
+	tables map[string]*Table,
+) (map[string]*Table, error) {
+	const q = "select table_name from system_schema.tables where keyspace_name = ?"
 	i := sess.Query(q, db).Iter()
 	var tmp string
 	tablenames := make([]string, 0, 10)
@@ -124,41 +124,41 @@ func RemoteGetMatchingTables(
 	if err := i.Close(); err != nil {
 		return nil, err
 	}
-	ret := make([]Table, len(tablenames))
+	ret := make(map[string]*Table)
 	mt := make(map[string]struct{})
 	for i := range tables {
 		mt[tables[i].Name] = struct{}{}
 	}
 	var err error
-	var it = 0
 	for _, tn := range tablenames {
 		if _, ok := mt[tn]; !ok {
 			continue
 		}
-		ret[it].Name = tn
-		if ret[it].PrimaryKey, err = RemoteGetPK(sess, db, tn); err != nil {
+		t := &Table{}
+		t.Name = tn
+		if t.PrimaryKey, err = RemoteGetPK(sess, db, tn); err != nil {
 			return nil, err
 		}
-		if ret[it].Columns, err = RemoteGetColumns(sess, db, tn); err != nil {
+		if t.Columns, err = RemoteGetColumns(sess, db, tn); err != nil {
 			return nil, err
 		}
-		it++
+		ret[t.Name] = t
 	}
-	return ret[:it], err
+	return ret, err
 }
 
 func RemoteGetViews(
 	sess *gocql.Session,
 	db string,
-) ([]MaterializedView, error) {
-	q := `
-		select view_name, base_table_name, where_clause 
+) (map[string]*MaterializedView, error) {
+	q := `select view_name, base_table_name, where_clause 
 		from system_schema.views 
 		where keyspace_name = ?`
 	i := sess.Query(q, db).Iter()
-	var tmp MaterializedView
+	var tmp *MaterializedView
 	var err error
-	ret := make([]MaterializedView, 0, 10)
+	ret := make(map[string]*MaterializedView)
+	tmp = new(MaterializedView)
 	for i.Scan(&tmp.Name, &tmp.Base, &tmp.WhereClause) {
 		if tmp.Columns, err = RemoteGetColumns(sess, db, tmp.Name); err != nil {
 			return nil, err
@@ -166,6 +166,8 @@ func RemoteGetViews(
 		if tmp.PrimaryKey, err = RemoteGetPK(sess, db, tmp.Name); err != nil {
 			return nil, err
 		}
+		ret[tmp.Name] = tmp
+		tmp = new(MaterializedView)
 	}
 	return ret, nil
 }

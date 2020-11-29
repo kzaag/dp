@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/kzaag/dp/cmn"
 	"github.com/kzaag/dp/rdbms"
+	"github.com/kzaag/dp/target"
 
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-func TargetGetCS(target *cmn.Target) (string, error) {
+func TargetGetCS(target *target.Target) (string, error) {
 
 	if target.ConnectionString != "" {
 		return target.ConnectionString, nil
@@ -28,8 +28,8 @@ func TargetGetCS(target *cmn.Target) (string, error) {
 	}
 
 	host := ""
-	if target.Server != "" {
-		host = fmt.Sprintf("host=%s", target.Server)
+	if len(target.Server) == 1 && target.Server[0] != "" {
+		host = fmt.Sprintf("host=%s", target.Server[0])
 	}
 	user := ""
 	if target.User != "" {
@@ -60,7 +60,7 @@ func TargetGetCS(target *cmn.Target) (string, error) {
 	return cs, nil
 }
 
-func TargetGetDB(target *cmn.Target) (*sql.DB, error) {
+func TargetGetDB(target *target.Target) (interface{}, error) {
 	var cs string
 	var err error
 
@@ -71,7 +71,10 @@ func TargetGetDB(target *cmn.Target) (*sql.DB, error) {
 	return sql.Open("postgres", cs)
 }
 
-func TargetGetMergeScript(db *sql.DB, ectx *cmn.Target, args []string) (string, error) {
+func TargetGetMergeScript(
+	dbCtx interface{}, ectx *target.Target, args []string,
+) (string, error) {
+	db := dbCtx.(*sql.DB)
 	ts := rdbms.MergeTableCtx{}
 	tt := MergeTypeCtx{}
 	ctx := StmtNew()
@@ -107,9 +110,13 @@ func TargetGetMergeScript(db *sql.DB, ectx *cmn.Target, args []string) (string, 
 	return mergeScript, nil
 }
 
-func TargetCtxNew() *rdbms.TargetCtx {
-	ctx := rdbms.TargetCtx{}
-	ctx.GetDB = TargetGetDB
-	ctx.GetMergeScript = TargetGetMergeScript
-	return &ctx
+func TargetCtxNew() *target.Ctx {
+	return &target.Ctx{
+		DbClose:        rdbms.DbClose,
+		DbExec:         rdbms.DbExec,
+		DbNew:          TargetGetDB,
+		DbPing:         rdbms.DbPing,
+		DbSuffix:       ".sql",
+		GetMergeScript: TargetGetMergeScript,
+	}
 }

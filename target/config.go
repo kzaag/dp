@@ -1,4 +1,4 @@
-package cmn
+package target
 
 import (
 	"fmt"
@@ -11,24 +11,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type Target struct {
-	ConnectionString string
-	Server           string
-	Database         string
-	User             string
-	Password         string
-	Args             map[string]string
-	Exec             []Exec
-	Name             string
-}
-
-type Exec struct {
-	Type    string
-	Args    []string
-	Err     string
-	Execute bool
-}
-
 /*
 	these arrays really should be hash tables.
 	deal with it.
@@ -39,22 +21,18 @@ type Config struct {
 	Targets []*Target
 }
 
-func New() *Config {
-	return &Config{}
-}
+const notFoundMsg = "stat *.yml: no such file or directory"
 
-const __NotFoundMsg = "stat *.yml: no such file or directory"
-
-func CreateFromText(c *Config, j []byte) error {
+func createFromText(c *Config, j []byte) error {
 	return yaml.Unmarshal(j, c)
 	/*
-		i dont really think that dp should support more than 1 config file format
+		i dont think that dp should support more than 1 config file format
 		return json.Unmarshal(j, c)
 	*/
 
 }
 
-func ConfigGetBufFromDir(dir string) (string, []byte, error) {
+func getBufFromDir(dir string) (string, []byte, error) {
 
 	var bf []byte
 
@@ -73,10 +51,10 @@ func ConfigGetBufFromDir(dir string) (string, []byte, error) {
 		}
 	}
 
-	return "", nil, fmt.Errorf(__NotFoundMsg)
+	return "", nil, fmt.Errorf(notFoundMsg)
 }
 
-func ConfigNewFromPath(configPath string) (*Config, error) {
+func NewConfigFromPath(configPath string) (*Config, error) {
 	var bf []byte
 	var err error
 	var fpath string
@@ -84,7 +62,7 @@ func ConfigNewFromPath(configPath string) (*Config, error) {
 	var fi os.FileInfo
 
 	if configPath == "" {
-		if fpath, bf, err = ConfigGetBufFromDir("."); err != nil {
+		if fpath, bf, err = getBufFromDir("."); err != nil {
 			return nil, err
 		}
 	} else {
@@ -92,7 +70,7 @@ func ConfigNewFromPath(configPath string) (*Config, error) {
 			return nil, err
 		}
 		if fi.IsDir() {
-			if fpath, bf, err = ConfigGetBufFromDir(configPath); err != nil {
+			if fpath, bf, err = getBufFromDir(configPath); err != nil {
 				return nil, err
 			}
 		} else {
@@ -103,7 +81,7 @@ func ConfigNewFromPath(configPath string) (*Config, error) {
 		}
 	}
 
-	if err = CreateFromText(&c, bf); err != nil {
+	if err = createFromText(&c, bf); err != nil {
 		return nil, err
 	}
 

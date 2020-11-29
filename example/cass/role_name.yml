@@ -1,0 +1,10 @@
+view:
+  name: role_name
+  base: roles
+  where: role_name is not null and role_id is not null
+  primary:
+    partition:
+      - name: role_name
+    clustering:
+      - name: role_id
+        order: asc

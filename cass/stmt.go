@@ -1,4 +1,4 @@
-package cql
+package cass
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ func StmtAddColumn(
 	tableName string, column *Column,
 ) string {
 	return fmt.Sprintf(
-		"alter %s add %s %s;\n",
+		"alter table %s add %s %s;\n",
 		tableName,
 		column.Name,
 		column.Type)
@@ -45,7 +45,7 @@ func StmtAlterColumn(
 
 func StmtDropColumn(tablename string, c1 *Column) string {
 	return fmt.Sprintf(
-		"alter table %s drop column %s",
+		"alter table %s drop %s",
 		tablename,
 		c1.Name,
 	)
@@ -70,11 +70,11 @@ func StmtPKDef(pk *PrimaryKey) string {
 }
 
 func StmtCreateTable(t *Table) string {
-	s := "create table " + t.Name + " ( \n)"
+	s := "create table " + t.Name + " ( \n"
 	for k := range t.Columns {
 		s += fmt.Sprintf("\t%s %s,\n", k, t.Columns[k].Type)
 	}
-	s += StmtPKDef(t.PrimaryKey)
+	s += "\t" + StmtPKDef(t.PrimaryKey)
 	s += "\n)"
 	addedTag := false
 	for i := 0; i < len(t.PrimaryKey.ClusteringColumns); i++ {
@@ -84,7 +84,7 @@ func StmtCreateTable(t *Table) string {
 				addedTag = true
 				s += " with clustering order by ("
 			}
-			s += fmt.Sprintf("%s %s, ",
+			s += fmt.Sprintf("%s %s,",
 				cc.Name, cc.Order)
 		}
 	}
@@ -103,21 +103,33 @@ func StmtDropTable(t *Table) string {
 func StmtCreateMaterializedView(m *MaterializedView) string {
 	s := "create materialized view " + m.Name + " as\n"
 	if len(m.Columns) == 0 {
-		s += "select * from " + m.Base + "\n"
+		s += "\tselect * from " + m.Base + "\n"
 	} else {
-		s += "select "
+		s += "\tselect "
 		for k := range m.Columns {
-			s += fmt.Sprintf("\t%s,\n", k)
+			s += fmt.Sprintf("\t\t%s,\n", k)
 		}
 		s = strings.TrimSuffix(s, ",\n")
-		s += "from " + m.Base + "\n"
+		s += "\tfrom " + m.Base + "\n"
 	}
-	s += " where " + m.WhereClause
-	s += StmtPKDef(m.PrimaryKey)
+	s += "\twhere " + m.WhereClause + "\n"
+	s += "\t" + StmtPKDef(m.PrimaryKey)
 	s += ";\n"
 	return s
 }
 
 func StmtDropMaterializedView(m *MaterializedView) string {
 	return "drop materialized view " + m.Name + ";\n"
+}
+
+func StmtNew() *StmtCtx {
+	return &StmtCtx{
+		AddColumn:              StmtAddColumn,
+		AlterColumn:            StmtAlterColumn,
+		CreateMaterializedView: StmtCreateMaterializedView,
+		CreateTable:            StmtCreateTable,
+		DropColumn:             StmtDropColumn,
+		DropMaterializedView:   StmtDropMaterializedView,
+		DropTable:              StmtDropTable,
+	}
 }

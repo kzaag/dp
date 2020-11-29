@@ -1,13 +1,13 @@
-package cmn
+package target
 
 import (
 	"flag"
 )
 
-type UserParamFlag uint32
+type ArgsFlag uint32
 
 const (
-	Verbose UserParamFlag = iota
+	Verbose ArgsFlag = iota
 	Execute
 	Raw
 )
@@ -26,7 +26,7 @@ type Args struct {
 	Raw        bool
 }
 
-func UserArgsNew() *Args {
+func NewArgsFromCli() *Args {
 
 	var c Args
 

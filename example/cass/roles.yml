@@ -1,0 +1,12 @@
+table:
+  name: roles
+  columns:
+    role_id:
+      type: uuid
+    role_name:
+      type: text
+    created_on:
+      type: timestamp
+  primary:
+    partition:
+      - name: role_id

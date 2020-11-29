@@ -2,11 +2,10 @@ package rdbms
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path"
 	"strings"
 
+	"github.com/kzaag/dp/cmn"
 	"gopkg.in/yaml.v2"
 )
 
@@ -212,43 +211,6 @@ func ParserValidateTable(ctx *StmtCtx, t *Table, f string) error {
 	return nil
 }
 
-func ParserIterateOverSource(
-	sourcePath string,
-	cb func(path string, fc []byte, args interface{}) error,
-	args interface{}) error {
-
-	var err error
-	var fi os.FileInfo
-	var di []os.FileInfo
-	var fc []byte
-
-	if fi, err = os.Stat(sourcePath); err != nil {
-		return err
-	}
-
-	if fi.IsDir() {
-		if di, err = ioutil.ReadDir(sourcePath); err != nil {
-			return err
-		}
-		for _, fi = range di {
-			if err = ParserIterateOverSource(
-				path.Join(sourcePath, fi.Name()),
-				cb, args); err != nil {
-				return err
-			}
-		}
-		return err
-	}
-
-	if fc, err = ioutil.ReadFile(sourcePath); err != nil {
-		return err
-	}
-	if len(fc) == 0 {
-		return fmt.Errorf("%s - empty file content", sourcePath)
-	}
-	return cb(sourcePath, fc, args)
-}
-
 func ParserGetValidateTable(path string, fc []byte, args interface{}) error {
 	var err error
 	var obj DDObject
@@ -267,7 +229,7 @@ func ParserGetValidateTable(path string, fc []byte, args interface{}) error {
 func ParserGetTablesInDir(ctx *StmtCtx, dir string) ([]DDObject, error) {
 	parser := ParseCtx{}
 	parser.Stmt = ctx
-	err := ParserIterateOverSource(dir, ParserGetValidateTable, &parser)
+	err := cmn.ParserIterateOverSource(dir, ParserGetValidateTable, &parser)
 	if err != nil {
 		return nil, err
 	}

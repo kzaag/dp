@@ -1,0 +1,13 @@
+table:
+  name: users
+  columns:
+    name:
+      type: uuid
+    age:
+      type: int
+  primary:
+    partition:
+      - name: name
+    clustering:
+      - name: age
+        order: asc

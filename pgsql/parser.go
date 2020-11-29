@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kzaag/dp/cmn"
 	"github.com/kzaag/dp/rdbms"
 
 	"gopkg.in/yaml.v2"
@@ -88,7 +89,7 @@ func ParserGetValidateObject(path string, fc []byte, args interface{}) error {
 func ParserGetObjectsInDir(ctx *StmtCtx, dir string) ([]DDObject, error) {
 	parser := ParseCtx{}
 	parser.Stmt = ctx
-	err := rdbms.ParserIterateOverSource(dir, ParserGetValidateObject, &parser)
+	err := cmn.ParserIterateOverSource(dir, ParserGetValidateObject, &parser)
 	if err != nil {
 		return nil, err
 	}

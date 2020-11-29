@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kzaag/dp/cass"
 	"github.com/kzaag/dp/cmn"
 	"github.com/kzaag/dp/mssql"
 	"github.com/kzaag/dp/pgsql"
-	"github.com/kzaag/dp/rdbms"
+	"github.com/kzaag/dp/target"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/lib/pq"
@@ -15,16 +16,16 @@ import (
 
 func main() {
 
-	var c *cmn.Config
+	var c *target.Config
 	var err error
 
 	/* read user parameters */
-	args := cmn.UserArgsNew()
+	args := target.NewArgsFromCli()
 
 	/*
 		parse configuration file
 	*/
-	if c, err = cmn.ConfigNewFromPath(args.ConfigPath); err != nil {
+	if c, err = target.NewConfigFromPath(args.ConfigPath); err != nil {
 		cmn.CndPrintError(args.Raw, err)
 		os.Exit(1)
 	}
@@ -35,16 +36,20 @@ func main() {
 			(go dynamic libs only seem to be working on linux).
 		Thus i use static module import
 	*/
+	var ctx *target.Ctx
 	switch c.Driver {
 	case "postgres":
-		ctx := pgsql.TargetCtxNew()
-		err = rdbms.TargetRunFromConfig(ctx, c, args)
+		ctx = pgsql.TargetCtxNew()
 	case "mssql":
-		ctx := mssql.TargetCtxNew()
-		err = rdbms.TargetRunFromConfig(ctx, c, args)
+		ctx = mssql.TargetCtxNew()
+	case "cassandra":
+		ctx = cass.TargetCtxNew()
 	default:
-		err = fmt.Errorf("Unkown driver: %s", c.Driver)
+		cmn.CndPrintError(args.Raw, fmt.Errorf("Unkown driver: %s", c.Driver))
+		os.Exit(1)
 	}
+
+	err = ctx.ExecConfig(c, args)
 
 	if err != nil {
 		cmn.CndPrintError(args.Raw, err)

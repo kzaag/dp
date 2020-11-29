@@ -1,7 +1,7 @@
 driver: postgres
 
 base_target: &base_target
-  server: 127.0.0.1
+  server: ["127.0.0.1"]
   args:
     # needless to say - use this for testing only.
     sslmode: disable

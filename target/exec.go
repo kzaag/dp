@@ -1,7 +1,6 @@
-package rdbms
+package target
 
 import (
-	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,7 +11,11 @@ import (
 	"github.com/kzaag/dp/cmn"
 )
 
-func ExecLines(db *sql.DB, cc []string, uargv *cmn.Args) (int, error) {
+func (ctx *Ctx) ExecLines(
+	db interface{},
+	cc []string,
+	uargv *Args,
+) (int, error) {
 	done := 0
 	var start time.Time
 	var err error
@@ -26,9 +29,9 @@ func ExecLines(db *sql.DB, cc []string, uargv *cmn.Args) (int, error) {
 			start = time.Now()
 		}
 		if uargv.Execute {
-			_, err = db.Exec(cc[i])
-		} else {
-			err = db.Ping()
+			err = ctx.DbExec(db, cc[i])
+		} else if ctx.DbPing != nil {
+			err = ctx.DbPing(db)
 		}
 		if err != nil {
 			return done, err
@@ -53,8 +56,9 @@ func ExecLines(db *sql.DB, cc []string, uargv *cmn.Args) (int, error) {
 	return done, nil
 }
 
-func ExecFile(db *sql.DB, filePath string, uargv *cmn.Args) error {
-
+func (ctx *Ctx) ExecFile(
+	db interface{}, filePath string, uargv *Args,
+) error {
 	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err
@@ -69,7 +73,7 @@ func ExecFile(db *sql.DB, filePath string, uargv *cmn.Args) error {
 	}
 
 	if uargv.Execute {
-		_, err = db.Exec(script)
+		err = ctx.DbExec(db, script)
 		if err != nil {
 			return err
 		}
@@ -86,7 +90,10 @@ func ExecFile(db *sql.DB, filePath string, uargv *cmn.Args) error {
 	return nil
 }
 
-func ExecDir(db *sql.DB, dirPath string, uargv *cmn.Args) error {
+func (ctx *Ctx) ExecDir(
+	db interface{}, dirPath string, uargv *Args,
+) error {
+
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
 		return err
@@ -99,17 +106,17 @@ func ExecDir(db *sql.DB, dirPath string, uargv *cmn.Args) error {
 		}
 		if fi.IsDir() {
 
-			if err = ExecDir(db, newpath, uargv); err != nil {
+			if err = ctx.ExecDir(db, newpath, uargv); err != nil {
 				return err
 			}
 
 		} else {
 
-			if !strings.HasSuffix(files[i].Name(), ".sql") {
+			if !strings.HasSuffix(files[i].Name(), ctx.DbSuffix) {
 				continue
 			}
 
-			if err = ExecFile(db, newpath, uargv); err != nil {
+			if err = ctx.ExecFile(db, newpath, uargv); err != nil {
 				return err
 			}
 
@@ -118,22 +125,26 @@ func ExecDir(db *sql.DB, dirPath string, uargv *cmn.Args) error {
 	return nil
 }
 
-func ExecPath(db *sql.DB, path string, uargv *cmn.Args) error {
+func (ctx *Ctx) ExecPath(
+	db interface{}, path string, uargv *Args,
+) error {
 	fi, err := os.Lstat(path)
 	if err != nil {
 		return err
 	}
 	if fi.IsDir() {
-		return ExecDir(db, path, uargv)
+		return ctx.ExecDir(db, path, uargv)
 	} else {
-		return ExecFile(db, path, uargv)
+		return ctx.ExecFile(db, path, uargv)
 	}
 }
 
-func ExecPaths(db *sql.DB, paths []string, uargv *cmn.Args) error {
+func (ctx *Ctx) ExecPaths(
+	db interface{}, paths []string, uargv *Args,
+) error {
 	var err error
 	for i := 0; i < len(paths); i++ {
-		if err = ExecPath(db, paths[i], uargv); err != nil {
+		if err = ctx.ExecPath(db, paths[i], uargv); err != nil {
 			return err
 		}
 	}
