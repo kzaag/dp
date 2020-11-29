@@ -5,8 +5,10 @@ type Column struct {
 	Type string
 }
 
-// type Index struct {
-// }
+type SASIIndex struct {
+	Name   string
+	Column string
+}
 
 type PKClusteringColumn struct {
 	Name     string
@@ -25,9 +27,10 @@ type PrimaryKey struct {
 }
 
 type Table struct {
-	Name       string
-	Columns    map[string]*Column
-	PrimaryKey *PrimaryKey `yaml:"primary"`
+	Name        string
+	Columns     map[string]*Column
+	PrimaryKey  *PrimaryKey           `yaml:"primary"`
+	SASIIndexes map[string]*SASIIndex `yaml:"sasi_index"`
 }
 
 type MaterializedView struct {

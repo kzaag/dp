@@ -50,6 +50,12 @@ func ParserValidateTable(
 			return fmt.Errorf("Validate %s: column %s doesnt specify type", path, k)
 		}
 	}
+	for s := range t.SASIIndexes {
+		t.SASIIndexes[s].Name = s
+		if t.SASIIndexes[s].Column == "" {
+			return fmt.Errorf("Validate %s: sasi index %s doesnt specify column", path, s)
+		}
+	}
 	return nil
 }
 

@@ -10,3 +10,7 @@ table:
   primary:
     partition:
       - name: role_id
+  sasi_index:
+    roles_sasi_timestamp:
+      column: role_name
+

@@ -30,7 +30,7 @@ type MergeScriptCtx struct {
 }
 
 // true if is the same
-func MergeCmdPK(p1, p2 *PrimaryKey) bool {
+func MergeCmpPK(p1, p2 *PrimaryKey) bool {
 	if len(p1.ClusteringColumns) != len(p2.ClusteringColumns) {
 		return false
 	}
@@ -80,6 +80,35 @@ func MergeColumns(
 	}
 }
 
+// true if ix is the same
+func MergeCmpSASIIndex(l, r *SASIIndex) bool {
+	return l.Column == r.Column
+}
+
+func MergeSASIIndexes(
+	stmt *StmtCtx,
+	sctx *MergeScriptCtx,
+	lt, rt *Table,
+) {
+	for lixName := range lt.SASIIndexes {
+		lix := lt.SASIIndexes[lixName]
+		if rix, ok := rt.SASIIndexes[lixName]; ok {
+			if !MergeCmpSASIIndex(lix, rix) {
+				// if indexes differ we will recreate them
+				*sctx.Drop += stmt.DropIndex(lix.Name)
+				*sctx.Create += stmt.CreateSASIIndex(rt.Name, rix)
+			}
+		} else {
+			*sctx.Create += stmt.CreateSASIIndex(lt.Name, lix)
+		}
+	}
+	for rixName := range rt.SASIIndexes {
+		if _, ok := lt.SASIIndexes[rixName]; !ok {
+			*sctx.Drop += stmt.DropIndex(rixName)
+		}
+	}
+}
+
 func MergeTables(
 	stmt *StmtCtx,
 	tctx *MergeTableCtx,
@@ -92,17 +121,27 @@ func MergeTables(
 
 			// if primary key differs
 			// then we dont have other choice than to recreate the table
-			if MergeCmdPK(lt.PrimaryKey, rt.PrimaryKey) {
-
+			if MergeCmpPK(lt.PrimaryKey, rt.PrimaryKey) {
 				MergeColumns(stmt, sctx, lt, rt)
-
+				MergeSASIIndexes(stmt, sctx, lt, rt)
 			} else {
+				for ixk := range lt.SASIIndexes {
+					*sctx.Drop += stmt.DropIndex(lt.SASIIndexes[ixk].Name)
+				}
 				*sctx.Drop += stmt.DropTable(lt)
 				*sctx.Create += stmt.CreateTable(rt)
+				for ixk := range rt.SASIIndexes {
+					ix := rt.SASIIndexes[ixk]
+					*sctx.Create += stmt.CreateSASIIndex(k, ix)
+				}
 			}
 		} else {
 			// remote table doesnt exist
-			*sctx.Create += stmt.CreateTable(tctx.LocalTables[k])
+			*sctx.Create += stmt.CreateTable(lt)
+			for ixk := range lt.SASIIndexes {
+				ix := lt.SASIIndexes[ixk]
+				*sctx.Create += stmt.CreateSASIIndex(k, ix)
+			}
 		}
 	}
 }
@@ -115,7 +154,7 @@ func MergeViews(
 	for k := range vctx.LocalViews {
 		lv := vctx.LocalViews[k]
 		if rv, ok := vctx.RemoteViews[k]; ok {
-			if !MergeCmdPK(lv.PrimaryKey, rv.PrimaryKey) {
+			if !MergeCmpPK(lv.PrimaryKey, rv.PrimaryKey) {
 				*sctx.Drop += stmt.DropMaterializedView(lv)
 				*sctx.Create += stmt.CreateMaterializedView(rv)
 			}

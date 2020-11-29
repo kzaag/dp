@@ -1,6 +1,7 @@
 package cass
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/gocql/gocql"
@@ -90,25 +91,6 @@ func RemoteGetPK(
 	return &pk, nil
 }
 
-func RemoteGetTable(
-	sess *gocql.Session,
-	db, table string,
-) (*Table, error) {
-	pk, err := RemoteGetPK(sess, db, table)
-	if err != nil {
-		return nil, err
-	}
-	cols, err := RemoteGetColumns(sess, db, table)
-	if err != nil {
-		return nil, err
-	}
-	return &Table{
-		Name:       table,
-		Columns:    cols,
-		PrimaryKey: pk,
-	}, nil
-}
-
 func RemoteGetMatchingTables(
 	sess *gocql.Session,
 	db string,
@@ -142,6 +124,9 @@ func RemoteGetMatchingTables(
 		if t.Columns, err = RemoteGetColumns(sess, db, tn); err != nil {
 			return nil, err
 		}
+		if t.SASIIndexes, err = RemoteGetSASIIndexes(sess, db, tn); err != nil {
+			return nil, err
+		}
 		ret[t.Name] = t
 	}
 	return ret, err
@@ -170,4 +155,30 @@ func RemoteGetViews(
 		tmp = new(MaterializedView)
 	}
 	return ret, nil
+}
+
+func RemoteGetSASIIndexes(
+	sess *gocql.Session, database, tablename string,
+) (map[string]*SASIIndex, error) {
+	q := `
+		select index_name, options
+		from system_schema.indexes where keyspace_name = ? and table_name = ?`
+	i := sess.Query(q, database, tablename).Iter()
+	tmp := new(SASIIndex)
+	ret := make(map[string]*SASIIndex)
+	var options map[string]string
+
+	for i.Scan(&tmp.Name, &options) {
+		if options["class_name"] != "org.apache.cassandra.index.sasi.SASIIndex" {
+			continue
+		}
+		tmp.Column = options["target"]
+		if tmp.Column == "" {
+			_ = i.Close()
+			return nil, fmt.Errorf("Couldnt find target for sasi index")
+		}
+		ret[tmp.Name] = tmp
+		tmp = new(SASIIndex)
+	}
+	return ret, i.Close()
 }

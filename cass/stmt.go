@@ -15,6 +15,8 @@ type StmtCtx struct {
 	DropTable              func(*Table) string
 	CreateMaterializedView func(*MaterializedView) string
 	DropMaterializedView   func(*MaterializedView) string
+	CreateSASIIndex        func(string, *SASIIndex) string
+	DropIndex              func(indexname string) string
 }
 
 func StmtAddColumn(
@@ -122,6 +124,16 @@ func StmtDropMaterializedView(m *MaterializedView) string {
 	return "drop materialized view " + m.Name + ";\n"
 }
 
+func StmtCreateSASIIndex(tablename string, ix *SASIIndex) string {
+	return "create custom index " + ix.Name +
+		" \n\ton " + tablename + " (" + ix.Column + ")" +
+		"\n\tusing 'org.apache.cassandra.index.sasi.SASIIndex';\n"
+}
+
+func StmtDropIndex(ixname string) string {
+	return "drop index " + ixname + ";\n"
+}
+
 func StmtNew() *StmtCtx {
 	return &StmtCtx{
 		AddColumn:              StmtAddColumn,
@@ -131,5 +143,7 @@ func StmtNew() *StmtCtx {
 		DropColumn:             StmtDropColumn,
 		DropMaterializedView:   StmtDropMaterializedView,
 		DropTable:              StmtDropTable,
+		CreateSASIIndex:        StmtCreateSASIIndex,
+		DropIndex:              StmtDropIndex,
 	}
 }
