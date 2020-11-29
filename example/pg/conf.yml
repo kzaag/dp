@@ -7,6 +7,22 @@ base_target: &base_target
     sslmode: disable
 
 targets:
+  - name: reset
+    << : *base_target
+    #
+    # on demand means that target will not be executed in default flow.
+    # it will only be executed when user specifies flag:
+    #  ./dp --demand reset
+    #
+    on_demand: true
+    database: postgres
+    password: postgres
+    user: postgres
+    exec:
+      - type: stmt
+        args: ["drop database dp"]
+        execute: true
+        err: warn
   - name: master
     << : *base_target
     database: postgres

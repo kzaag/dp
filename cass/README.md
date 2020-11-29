@@ -2,10 +2,11 @@
   
   ### tested with cassandra 3.8.11 
   
-Supports:    
-   * materialized views (basic)  
-    * tables  
-    * PK  
+Supports:   
+* materialized views (basic)  
+ * tables  
+  * PK   
+  * SASIIndex  
 
 TODO:
    -    types  

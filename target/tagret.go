@@ -18,6 +18,7 @@ type Target struct {
 	Args             map[string]string
 	Exec             []Exec
 	Name             string
+	OnDemand         bool `yaml:"on_demand"`
 }
 
 func (t *Target) GetInt(name string, val *int) error {
@@ -68,6 +69,12 @@ func (ctx *Ctx) ExecTarget(
 	var err error
 	var db interface{}
 	var userExecute bool
+
+	if target.OnDemand {
+		if _, ok := uargv.Demand[target.Name]; !ok {
+			return nil
+		}
+	}
 
 	if db, err = ctx.DbNew(target); err != nil {
 		return err
