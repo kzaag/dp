@@ -56,10 +56,13 @@ func p(err error) {
 func dbNew(target *target.Target) (interface{}, error) {
 	var sess *gocql.Session
 	var err error
-	var timeout, retries, interval int = 10, 0, 2
+	var timeout, retries, interval int = 10, 1, 2
 	p(target.GetInt("timeout", &timeout))
 	p(target.GetInt("retries", &retries))
 	p(target.GetInt("interval", &interval))
+	if retries < 1 {
+		return nil, fmt.Errorf("retries cannot be < 1")
+	}
 	cluster := gocql.NewCluster(target.Server...)
 	cluster.Timeout = time.Second * time.Duration(timeout)
 	cluster.Keyspace = target.Database

@@ -161,8 +161,8 @@ func MergeTables(
 				for ixk := range lt.SASIIndexes {
 					MergeAddOperation(sctx.Drop, stmt.DropIndex(lt.SASIIndexes[ixk].Name))
 				}
-				MergeAddOperation(sctx.Drop, stmt.DropTable(lt))
-				MergeAddOperation(sctx.Create, stmt.CreateTable(rt))
+				MergeAddOperation(sctx.Drop, stmt.DropTable(rt))
+				MergeAddOperation(sctx.Create, stmt.CreateTable(lt))
 				for ixk := range rt.SASIIndexes {
 					ix := rt.SASIIndexes[ixk]
 					MergeAddOperation(sctx.Create, stmt.CreateSASIIndex(k, ix))
