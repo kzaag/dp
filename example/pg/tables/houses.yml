@@ -8,6 +8,18 @@ table:
       type: text
     - name: user_id
       type: int
+    - name: foo
+      type: integer[]
+    - name: foo2
+      type: text[]
+    - name: x
+      type: int[]
+    - name: y
+      type: boolean
+    - name: z
+      type: boolean[]
+    - name: z2
+      type: car_mark[]
   primary:
     name: houses_pk
     columns:

@@ -162,6 +162,16 @@ func StmtDropIndex(tableName string, i *rdbms.Index) string {
 }
 
 func StmtColumnType(column *rdbms.Column) string {
+
+	isArr := false
+	if strings.HasPrefix(column.Type, "_") {
+		isArr = true
+		column.Type = strings.TrimPrefix(column.Type, "_")
+	}
+	if strings.HasSuffix(column.Type, "[]") {
+		isArr = true
+		column.Type = strings.TrimSuffix(column.Type, "[]")
+	}
 	cs := ""
 	switch strings.ToLower(column.Type) {
 	case "bit":
@@ -321,6 +331,9 @@ func StmtColumnType(column *rdbms.Column) string {
 	default:
 		//panic("no pgsql mapper for type : " + strings.ToLower(column.Type))
 		return column.Type
+	}
+	if isArr {
+		cs += "[]"
 	}
 	return strings.ToUpper(cs)
 }
