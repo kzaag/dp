@@ -65,7 +65,7 @@ func MergeDropCompositeTypeColumnRefs(
 }
 
 func MergeComposite(
-	r *rdbms.StmtCtx,
+	r *StmtCtx,
 	ts *rdbms.MergeTableCtx,
 	ss *rdbms.MergeScriptCtx,
 	lt *Type,
@@ -90,7 +90,7 @@ func MergeComposite(
 			rc := &rt.Columns[index]
 			matchedIxs.PushBack(index)
 
-			if rdbms.MergeCompareColumn(r, lc, rc) {
+			if rdbms.MergeCompareColumn(&r.StmtCtx, lc, rc) {
 				continue
 			}
 
@@ -113,13 +113,13 @@ func MergeComposite(
 
 		dc := &rt.Columns[i]
 
-		db := MergeDropCompositeTypeColumnRefs(r, rt, ts, ss, dc)
+		db := MergeDropCompositeTypeColumnRefs(&r.StmtCtx, rt, ts, ss, dc)
 		//drefs := MergeDropColRefs(rem, dc, remTable, mrg.remTables, mrg.drop)
 
 		rdbms.MergeAddOperation(ss.Drop, r.DropColumn(lt.Name, dc))
 
 		//MergeRecreateColRefs(rem, mrg.localTables, mrg.create, drefs)
-		rdbms.MergeDropRecreate(r, db, ss, ts)
+		rdbms.MergeDropRecreate(&r.StmtCtx, db, ss, ts)
 	}
 
 }
@@ -173,7 +173,7 @@ func MergeType(
 		switch lt.Type {
 		case TT_Composite:
 
-			MergeComposite(&r.StmtCtx, ts, ss, lt, rt)
+			MergeComposite(r, ts, ss, lt, rt)
 
 		case TT_Enum:
 

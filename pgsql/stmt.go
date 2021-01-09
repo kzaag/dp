@@ -309,9 +309,11 @@ func StmtColumnType(column *rdbms.Column) string {
 	case "numeric":
 		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Precision)) + "," + strconv.Itoa(int(column.Scale)) + ")"
 	case "time":
-		fallthrough
+		column.Type = "time without time zone"
+		cs += "TIME(" + strconv.Itoa(int(column.Precision)) + ") WITHOUT TIME ZONE"
 	case "timetz":
-		fallthrough
+		column.Type = "time with time zone"
+		cs += "TIME(" + strconv.Itoa(int(column.Precision)) + ") WITH TIME ZONE"
 	case "interval":
 		cs += strings.ToUpper(column.Type) + "(" + strconv.Itoa(int(column.Precision)) + ")"
 	case "timestamp":
@@ -366,10 +368,11 @@ func StmtAddType(t *Type) string {
 			if i > 0 {
 				ret += ","
 			}
+			ret += "\n\t"
 			ret += rdbms.StmtColumnNameAndType(&t.Columns[i])
 		}
 
-		ret += ");\n"
+		ret += "\n);\n"
 	}
 
 	return ret
@@ -393,8 +396,13 @@ func StmtAlterColumn(tableName string, sc, c *rdbms.Column) string {
 	ret := ""
 
 	if sc.FullType != c.FullType {
-
-		s := "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name + " SET DATA TYPE " + c.FullType
+		isType := (sc.Meta & rdbms.CM_CompType) != 0
+		s := ""
+		if isType {
+			s = "ALTER TYPE " + tableName + " ALTER ATTRIBUTE " + c.Name + " SET DATA TYPE " + c.FullType + " CASCADE"
+		} else {
+			s = "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name + " SET DATA TYPE " + c.FullType
+		}
 
 		// here theoretically could be introduced USING ( ... ) to the alter
 		// but it seems too complex to properly introduce trimming for any pg type.
@@ -402,6 +410,11 @@ func StmtAlterColumn(tableName string, sc, c *rdbms.Column) string {
 
 		s += ";\n"
 		ret += s
+
+		// no point of checking nullable on types
+		if isType {
+			return ret
+		}
 	}
 
 	if sc.Nullable != c.Nullable {
