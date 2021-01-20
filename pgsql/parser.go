@@ -38,14 +38,16 @@ func ParserValidateType(ctx *rdbms.StmtCtx, t *Type, path string) error {
 	t.Type = strings.ToLower(t.Type)
 
 	switch t.Type {
-	case TT_Composite:
+	case TypeComposite:
 		if err := rdbms.ParserValidateColumn(ctx, t.Columns); err != nil {
 			return ParserElevateErrorType(t.Name, err)
 		}
 		for i := 0; i < len(t.Columns); i++ {
-			t.Columns[i].Meta = rdbms.CM_CompType
+			t.Columns[i].Tags = map[string]struct{}{
+				TypeComposite: {},
+			}
 		}
-	case TT_Enum:
+	case TypeEnum:
 		if err := __ParserValidateStrArray(t.Values); err != nil {
 			return ParserElevateErrorType(t.Name, err)
 		}

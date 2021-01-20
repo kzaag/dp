@@ -171,11 +171,11 @@ func MergeType(
 	if rt.Type == lt.Type {
 
 		switch lt.Type {
-		case TT_Composite:
+		case TypeComposite:
 
 			MergeComposite(r, ts, ss, lt, rt)
 
-		case TT_Enum:
+		case TypeEnum:
 
 			MergeEnum(r, ts, ss, lt, rt)
 

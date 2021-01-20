@@ -42,14 +42,14 @@ type ForeignKey struct {
 	Constraint  `yaml:",inline"`
 }
 
-type ColumnMeta int
+// type ColumnMeta int
 
-const (
-	// standard column
-	//CM_None ColumnMeta = 0
-	// composite type column
-	CM_CompType ColumnMeta = 1
-)
+// const (
+// 	// standard column
+// 	//CM_None ColumnMeta = 0
+// 	// composite type column
+// 	CM_CompType ColumnMeta = 1
+// )
 
 type Column struct {
 	Name string
@@ -71,16 +71,20 @@ type Column struct {
 	Nullable  bool
 	Identity  bool
 
-	// extra metadata which specifies extra behaviour about column in specific dbms
-	//( example: like composite type column which cannot be not null, or different add/drop/alter syntax applies)
-	// maybe this shoul;d be removed from rdbms, and applied directly in rdbms implementations.
-	Meta ColumnMeta
+	// metadata which specifies extra behaviour about column in specific dbms
+	// like Pgsql composite type column which cannot be "not null", or different add/drop/alter syntax applies
+	Tags map[string]struct{}
 }
 
-// // will set FullType field based on rest of fields
-// func (rc *Column) SetFullType(r *Remote) {
-// 	rc.FullType = RemoteColumnType(r, rc)
-// }
+func (c *Column) HasTag(tag string) bool {
+	if c.Tags == nil {
+		return false
+	}
+	if _, ok := c.Tags[tag]; ok {
+		return true
+	}
+	return false
+}
 
 type Table struct {
 	Name    string
@@ -92,26 +96,3 @@ type Table struct {
 	Check   []Check
 	Indexes []Index
 }
-
-// type DbConstraint struct {
-// 	Name string
-// 	Type string
-// }
-
-// type DbConf struct {
-// 	Server   string
-// 	Database string
-// 	User     string
-// 	Password string
-// 	Other    map[string]string
-// 	Pre      []string
-// 	Post     []string
-// }
-
-// func (conf *DbConf) ToCS() string {
-// 	return "server=" + conf.Server +
-// 		";user id=" + conf.User +
-// 		";password=" + conf.Password +
-// 		";database=" + conf.Database +
-// 		";"
-// }

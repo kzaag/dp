@@ -23,7 +23,7 @@ func RemoteGetEnum(db *sql.DB) ([]Type, error) {
 		if err != nil {
 			return nil, err
 		}
-		tps = append(tps, Type{enumname, TT_Enum, nil, nil})
+		tps = append(tps, Type{enumname, TypeEnum, nil, nil})
 	}
 
 	query := `select e.enumlabel
@@ -77,7 +77,7 @@ func RemoteGetComposite(db *sql.DB) ([]Type, error) {
 		if err != nil {
 			return nil, err
 		}
-		tps = append(tps, Type{name, TT_Composite, nil, nil})
+		tps = append(tps, Type{name, TypeComposite, nil, nil})
 	}
 
 	query := `SELECT attname, UPPER(format_type(atttypid, atttypmod)) AS type
@@ -108,7 +108,9 @@ func RemoteGetComposite(db *sql.DB) ([]Type, error) {
 				Scale:     -1,
 				Nullable:  false,
 				Identity:  false,
-				Meta:      rdbms.CM_CompType}
+				Tags: map[string]struct{}{
+					TypeComposite: {},
+				}}
 			if err != nil {
 				return nil, err
 			}

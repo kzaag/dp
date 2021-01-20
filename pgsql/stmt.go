@@ -39,7 +39,7 @@ func __StmtDefColumn(column *rdbms.Column) string {
 	var cs string
 	cs += column.Name + " " + column.FullType
 
-	if (column.Meta & rdbms.CM_CompType) == rdbms.CM_CompType {
+	if column.HasTag(TypeComposite) {
 		return cs
 	}
 
@@ -347,7 +347,7 @@ func StmtAddType(t *Type) string {
 	ret += "CREATE TYPE " + t.Name + " AS"
 
 	switch t.Type {
-	case TT_Enum:
+	case TypeEnum:
 
 		ret += " ENUM ("
 
@@ -360,7 +360,7 @@ func StmtAddType(t *Type) string {
 
 		ret += ");\n"
 
-	case TT_Composite:
+	case TypeComposite:
 
 		ret += " ("
 
@@ -383,12 +383,10 @@ func StmtDropType(t *Type) string {
 }
 
 func StmtDropColumn(tablename string, c *rdbms.Column) string {
-	switch c.Meta {
-	case rdbms.CM_CompType:
+	if c.HasTag(TypeComposite) {
 		return "ALTER TYPE " + tablename + " DROP ATTRIBUTE " + c.Name + " CASCADE;\n"
-	default:
-		return "ALTER TABLE " + tablename + " DROP COLUMN " + c.Name + ";\n"
 	}
+	return "ALTER TABLE " + tablename + " DROP COLUMN " + c.Name + ";\n"
 }
 
 func StmtAlterColumn(tableName string, sc, c *rdbms.Column) string {
@@ -396,7 +394,7 @@ func StmtAlterColumn(tableName string, sc, c *rdbms.Column) string {
 	ret := ""
 
 	if sc.FullType != c.FullType {
-		isType := (sc.Meta & rdbms.CM_CompType) != 0
+		isType := c.HasTag(TypeComposite)
 		s := ""
 		if isType {
 			s = "ALTER TYPE " + tableName + " ALTER ATTRIBUTE " + c.Name + " SET DATA TYPE " + c.FullType + " CASCADE"
@@ -434,7 +432,7 @@ func StmtAddColumn(tableName string, c *rdbms.Column) string {
 
 	s := __StmtDefColumn(c)
 
-	if (c.Meta & rdbms.CM_CompType) == rdbms.CM_CompType {
+	if c.HasTag(TypeComposite) {
 		return "ALTER TYPE " + tableName + " ADD ATTRIBUTE " + s + " CASCADE;\n"
 	}
 

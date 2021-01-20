@@ -3,8 +3,8 @@ package pgsql
 import "github.com/kzaag/dp/rdbms"
 
 const (
-	TT_Enum      string = "enum"
-	TT_Composite string = "composite"
+	TypeEnum      string = "enum"
+	TypeComposite string = "composite"
 )
 
 type Type struct {
