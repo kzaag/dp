@@ -112,10 +112,18 @@ func StmtAddIndex(tableName string, ix *rdbms.Index) string {
 		t = strings.ToUpper(ix.Type) + " "
 	}
 
+	using := ""
+
+	if ix.Tags != nil {
+		if using = ix.Tags["using"]; using != "" {
+			using = " USING " + using
+		}
+	}
+
 	ret :=
 		"CREATE " + unique +
 			t + "INDEX " +
-			ix.Name + " ON " + tableName + " ("
+			ix.Name + " ON " + tableName + using + " ("
 
 	for i := 0; i < len(ix.Columns); i++ {
 		c := ix.Columns[i]

@@ -49,7 +49,7 @@ func HelperMapIxColumns(rows *sql.Rows) ([]IndexColumn, error) {
 		err := rows.Scan(&cc.Name, &cc.Is_descending, &cc.Is_Included_column)
 
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		ccs.PushBack(cc)
 	}

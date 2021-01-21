@@ -2,6 +2,7 @@ package rdbms
 
 import (
 	"container/list"
+	"fmt"
 	"strings"
 )
 
@@ -84,38 +85,6 @@ func MergeAddOperation(dest *string, elem string) {
 	if !strings.Contains(*dest, elem) {
 		*dest += elem
 	}
-}
-
-func MergeCompareIColumn(c1 []IndexColumn, c2 []IndexColumn) bool {
-
-	if c1 == nil || c2 == nil {
-		return false
-	}
-
-	if len(c1) != len(c2) {
-		return true
-	}
-
-	for i := 0; i < len(c1); i++ {
-		var found bool = false
-		for j := 0; j < len(c2); j++ {
-			x := c1[i]
-			y := c2[j]
-			if x.Name == y.Name &&
-				x.Is_descending == y.Is_descending &&
-				x.Is_Included_column == y.Is_Included_column {
-
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			return false
-		}
-	}
-
-	return true
 }
 
 func MergeCompareCColumn(c1 []ConstraintColumn, c2 []ConstraintColumn) bool {
@@ -257,7 +226,8 @@ func MergeIx(
 			} else {
 				matchedIxs.PushBack(index)
 
-				if !MergeCompareIColumn(userUq.Columns, remTable.Indexes[index].Columns) {
+				if mrg.AddIndex("", userUq) != mrg.AddIndex("", &remTable.Indexes[index]) {
+					fmt.Println(mrg.AddIndex("", userUq), mrg.AddIndex("", &remTable.Indexes[index]))
 
 					MergeAddOperation(ss.Drop, mrg.DropIndex(localTable.Name, &remTable.Indexes[index]))
 					MergeAddOperation(ss.Create, mrg.AddIndex(localTable.Name, userUq))

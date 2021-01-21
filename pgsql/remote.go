@@ -365,18 +365,21 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
 		`select
 			i.relname as index_name,
 			ix.indisunique as is_unique,
-			ix.indisclustered as is_clustered
+			ix.indisclustered as is_clustered,
+			am.amname as type
 		from
 			pg_class t,
 			pg_class i,
-			pg_index ix
+			pg_index ix,
+			pg_am am
 		where
 			t.oid = ix.indrelid
 			and i.oid = ix.indexrelid
 			and t.relkind = 'r'
 			and t.relname = $1
 			and indisprimary = false
-			and indisunique = false`, tableName)
+			and indisunique = false
+			and am.oid = i.relam`, tableName)
 
 	if err != nil {
 		return nil, err
@@ -386,7 +389,15 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
 
 	for rows.Next() {
 		var k rdbms.Index
-		err := rows.Scan(&k.Name, &k.Is_unique, &k.Type)
+		var c bool
+		var t string
+		err := rows.Scan(&k.Name, &k.Is_unique, &c, &t)
+		if c {
+			k.Type = "clustered"
+		}
+		k.Tags = map[string]string{
+			"using": t,
+		}
 		if err != nil {
 			panic(err)
 		}
@@ -401,15 +412,15 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
 			`select
 				column_name,
 				case when indoption[unn-1] = 3 then true else false end as is_descending,
-				false as is_included_column 
+				false as is_included_column
 			from (
 				select
 					t.relname as table_name,
 					i.relname as index_name,
 					a.attname as column_name,
 					unnest(ix.indkey) as unn,
-					ix.indoption,
-					a.attnum
+					a.attnum,
+					ix.indoption
 				from
 					pg_class t,
 					pg_class i,

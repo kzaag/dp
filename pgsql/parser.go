@@ -81,6 +81,15 @@ func ParserGetValidateObject(path string, fc []byte, args interface{}) error {
 	}
 	if obj.Table != nil {
 		err = rdbms.ParserValidateTable(&ctx.Stmt.StmtCtx, obj.Table, path)
+		// set default index type
+		for i := 0; i < len(obj.Table.Indexes); i++ {
+			if obj.Table.Indexes[i].Tags == nil {
+				obj.Table.Indexes[i].Tags = map[string]string{}
+			}
+			if c := obj.Table.Indexes[i].Tags["using"]; c == "" {
+				obj.Table.Indexes[i].Tags["using"] = "btree"
+			}
+		}
 	} else {
 		err = ParserValidateType(&ctx.Stmt.StmtCtx, obj.Type, path)
 	}

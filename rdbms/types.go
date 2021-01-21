@@ -11,6 +11,7 @@ type Index struct {
 	Type      string
 	Is_unique bool
 	Columns   []IndexColumn
+	Tags      map[string]string
 }
 
 type ConstraintColumn struct {
