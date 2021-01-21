@@ -16,6 +16,7 @@ import (
 	deal with it.
 */
 type Config struct {
+	Version string
 	Driver  string
 	Base    string
 	Targets []*Target
@@ -91,6 +92,12 @@ func NewConfigFromPath(configPath string) (*Config, error) {
 		}
 		dir := filepath.Dir(fpath)
 		c.Base = dir
+	}
+
+	if c.Version != Version {
+		return nil, fmt.Errorf(
+			"Config requested version %s which is incompatible with current module version %s",
+			c.Version, Version)
 	}
 
 	return &c, err
