@@ -81,9 +81,17 @@ func StmtAddFk(tableName string, fk *ForeignKey) string {
 	for z := 0; z < len(fk.Ref_columns); z++ {
 		ret += StmtConstraintColumn(fk.Ref_columns[z])
 	}
-	ret = strings.TrimSuffix(ret, ",")
+	ret = strings.TrimSuffix(ret, ",") + ")"
 
-	ret += " );\n"
+	if fk.OnDelete != "" && fk.OnDelete != "NO ACTION" {
+		ret += " ON DELETE " + strings.ToUpper(fk.OnDelete)
+	}
+
+	if fk.OnUpdate != "" && fk.OnUpdate != "NO ACTION" {
+		ret += " ON UPDATE " + strings.ToUpper(fk.OnUpdate)
+	}
+
+	ret += ";\n"
 	return ret
 }
 

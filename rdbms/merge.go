@@ -398,10 +398,10 @@ func MergeFK(
 			} else {
 				matchedIxs.PushBack(index)
 
-				ceq := MergeCompareCColumn(userFK.Columns, remTable.Foreign[index].Columns)
-				rceq := MergeCompareCColumn(userFK.Ref_columns, remTable.Foreign[index].Ref_columns)
+				// ceq := MergeCompareCColumn(userFK.Columns, remTable.Foreign[index].Columns)
+				// rceq := MergeCompareCColumn(userFK.Ref_columns, remTable.Foreign[index].Ref_columns)
 
-				if !ceq || !rceq {
+				if mrg.AddFK("", userFK) != mrg.AddFK("", &remTable.Foreign[index]) {
 					MergeAddOperation(
 						ss.Drop,
 						mrg.DropConstraint(localTable.Name, &remTable.Foreign[index].Constraint))

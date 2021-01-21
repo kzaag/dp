@@ -25,5 +25,9 @@ after verification you can execute those queries on target server
 ```./dp -c pg/conf.yml -v -e```  
 - -e : execute queries instead of generating output  
   
+
 ### MsSql
-work in progress  
+work in progress (unstable and is lacking features)  
+
+### Cassandra
+Work in progress (unstable and is lacking features)

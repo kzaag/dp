@@ -328,6 +328,22 @@ func RemoteGetAllFK(db *sql.DB, tableName string) ([]rdbms.ForeignKey, error) {
 		fk := x.Value.(rdbms.ForeignKey)
 
 		rows, err = db.Query(
+			`select update_rule, delete_rule from information_schema.referential_constraints 
+			where constraint_name = $1`, fk.Name,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if rows.Next() {
+			if err := rows.Scan(&fk.OnUpdate, &fk.OnDelete); err != nil {
+				return nil, err
+			}
+		}
+
+		rows.Close()
+
+		rows, err = db.Query(
 			`select column_name, false as is_descending
 			from information_schema.key_column_usage
 			where constraint_name = $1`, fk.Name)

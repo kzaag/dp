@@ -41,6 +41,8 @@ type ForeignKey struct {
 	Ref_columns []ConstraintColumn
 	Ref_table   string
 	Constraint  `yaml:",inline"`
+	OnDelete    string `yaml:"on_delete"`
+	OnUpdate    string `yaml:"on_update"`
 }
 
 // type ColumnMeta int
