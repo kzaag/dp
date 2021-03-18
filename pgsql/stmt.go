@@ -248,6 +248,11 @@ func StmtColumnType(column *rdbms.Column) string {
 		fallthrough
 	case "date":
 		fallthrough
+	case "float":
+		if column.Type == "float" {
+			column.Type = "double precision"
+		}
+		fallthrough
 	case "double precision":
 		fallthrough
 	case "float8":
