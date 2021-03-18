@@ -125,10 +125,17 @@ func StmtAddIndex(tableName string, ix *rdbms.Index) string {
 			t + "INDEX " +
 			ix.Name + " ON " + tableName + using + " ("
 
+	isFirst := true
+
 	for i := 0; i < len(ix.Columns); i++ {
 		c := ix.Columns[i]
 		if c.Is_Included_column {
 			continue
+		}
+		if isFirst {
+			isFirst = false
+		} else {
+			ret += ","
 		}
 		ret += c.Name
 		if c.Is_descending {
@@ -147,8 +154,10 @@ func StmtAddIndex(tableName string, ix *rdbms.Index) string {
 
 		if !includes {
 			ret += " INCLUDE ("
+			includes = true
+		} else {
+			ret += ","
 		}
-		includes = true
 
 		ret += c.Name
 		if c.Is_descending {

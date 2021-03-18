@@ -2,7 +2,6 @@ package rdbms
 
 import (
 	"container/list"
-	"fmt"
 	"strings"
 )
 
@@ -227,11 +226,8 @@ func MergeIx(
 				matchedIxs.PushBack(index)
 
 				if mrg.AddIndex("", userUq) != mrg.AddIndex("", &remTable.Indexes[index]) {
-					fmt.Println(mrg.AddIndex("", userUq), mrg.AddIndex("", &remTable.Indexes[index]))
-
 					MergeAddOperation(ss.Drop, mrg.DropIndex(localTable.Name, &remTable.Indexes[index]))
 					MergeAddOperation(ss.Create, mrg.AddIndex(localTable.Name, userUq))
-
 				}
 			}
 		}

@@ -21,11 +21,12 @@ func RemoteGetEnum(db *sql.DB) ([]Type, error) {
 		var enumname string
 		err := rows.Scan(&enumname)
 		if err != nil {
+			rows.Close()
 			return nil, err
 		}
 		tps = append(tps, Type{enumname, TypeEnum, nil, nil})
 	}
-
+	rows.Close()
 	query := `select e.enumlabel
 			 from pg_enum e
 			 join pg_type t ON e.enumtypid = t.oid
@@ -39,17 +40,17 @@ func RemoteGetEnum(db *sql.DB) ([]Type, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		cols := list.New()
 		for rows.Next() {
 			var colname string
 			err := rows.Scan(&colname)
 			if err != nil {
+				rows.Close()
 				return nil, err
 			}
 			cols.PushBack(colname)
 		}
-
+		rows.Close()
 		tp.Values = make([]string, cols.Len())
 
 		for i, x := 0, cols.Front(); x != nil; i, x = i+1, x.Next() {
@@ -93,7 +94,7 @@ func RemoteGetComposite(db *sql.DB) ([]Type, error) {
 		if err != nil {
 			return nil, err
 		}
-
+		defer rows.Close()
 		cols := list.New()
 		for rows.Next() {
 			var colname string
@@ -174,6 +175,7 @@ func RemoteGetAllPK(db *sql.DB, tableName string) (*rdbms.PrimaryKey, error) {
 		return nil, err
 	}
 
+	defer rows.Close()
 	if !rows.Next() {
 		return nil, nil
 	}
@@ -222,6 +224,7 @@ func RemoteGetAllColumn(db *sql.DB, tableName string) ([]rdbms.Column, error) {
 		return nil, err
 	}
 
+	defer rows.Close()
 	c, err := HelperMapColumns(rows)
 	if err != nil {
 		return nil, err
@@ -253,6 +256,7 @@ func RemoteGetAllUnique(db *sql.DB, tableName string) ([]rdbms.Unique, error) {
 		tmp.PushBack(k)
 	}
 
+	defer rows.Close()
 	ret := make([]rdbms.Unique, tmp.Len())
 	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
 		c := x.Value.(rdbms.Unique)
@@ -290,6 +294,7 @@ func RemoteGetAllCheck(db *sql.DB, tableName string) ([]rdbms.Check, error) {
 		return nil, err
 	}
 
+	defer rows.Close()
 	c, err := rdbms.HelperMapChecks(rows)
 	if err != nil {
 		return nil, err
@@ -334,14 +339,13 @@ func RemoteGetAllFK(db *sql.DB, tableName string) ([]rdbms.ForeignKey, error) {
 		if err != nil {
 			return nil, err
 		}
+		defer rows.Close()
 
 		if rows.Next() {
 			if err := rows.Scan(&fk.OnUpdate, &fk.OnDelete); err != nil {
 				return nil, err
 			}
 		}
-
-		rows.Close()
 
 		rows, err = db.Query(
 			`select column_name, false as is_descending
@@ -400,6 +404,7 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	tmp := list.New()
 
@@ -425,40 +430,38 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
 		c := x.Value.(rdbms.Index)
 
 		rows, err = db.Query(
-			`select
-				column_name,
-				case when indoption[unn-1] = 3 then true else false end as is_descending,
-				false as is_included_column
-			from (
-				select
-					t.relname as table_name,
-					i.relname as index_name,
-					a.attname as column_name,
-					unnest(ix.indkey) as unn,
-					a.attnum,
-					ix.indoption
-				from
-					pg_class t,
-					pg_class i,
-					pg_index ix,
-					pg_attribute a
-				where
-					t.oid = ix.indrelid
-					and i.oid = ix.indexrelid
-					and a.attrelid = t.oid
-					and a.attnum = ANY(ix.indkey)
-					and t.relkind = 'r'
-					and i.relname = $1
-				order by
-					t.relname,
-					i.relname,
-					generate_subscripts(ix.indkey,1)
-			) sb
-			where unn = attnum`, c.Name)
+			`SELECT 
+			pg_catalog.pg_get_indexdef(ci.oid, (i.keys).n, false) AS column_name, 
+		   CASE i.indoption[(i.keys).n - 1] & 1 
+			   WHEN 1 THEN true 
+			   ELSE false
+			 END AS is_descending,
+			CASE 
+			   WHEN i.indoption[(i.keys).n - 1] is null THEN true 
+			   ELSE false
+			 END AS is_included
+		-- debug fields, and for future reference and testing...
+		  --,pg_catalog.pg_get_expr(i.indpred, i.indrelid) AS filter_condition 
+		  --,i.*
+		  --,(i.keys).n
+	FROM pg_catalog.pg_class ct 
+	  --JOIN pg_catalog.pg_namespace n ON (ct.relnamespace = n.oid) 
+	  JOIN (SELECT i.indexrelid, i.indrelid, i.indoption, 
+			  i.indisunique, i.indisclustered, i.indpred, 
+			  i.indexprs, 
+			  information_schema._pg_expandarray(i.indkey) AS keys 
+			FROM pg_catalog.pg_index i) i 
+		ON (ct.oid = i.indrelid) 
+	  JOIN pg_catalog.pg_class ci ON (ci.oid = i.indexrelid) 
+	  JOIN pg_catalog.pg_am am ON (ci.relam = am.oid) 
+	WHERE ci.relname = $1
+	order by (i.keys).n;
+	`, c.Name)
 
 		if err != nil {
 			return nil, err
 		}
+		defer rows.Close()
 		c.Columns, err = rdbms.HelperMapIxColumns(rows)
 		if err != nil {
 			return nil, err
@@ -482,6 +485,7 @@ func RemoteGetTypedTableInfo(db *sql.DB, t *rdbms.Table) error {
 	if rows, err = db.Query(q, t.Name); err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var ptname *string
