@@ -53,6 +53,7 @@ func NewArgsFromCli() *Args {
 	flag.BoolVar(&c.Execute, "e", false, "execute, if not specified then expect dry run, (nothing gets executed on database)")
 	flag.BoolVar(&c.Verbose, "v", false, "verbosity - report progress as program runs")
 	flag.BoolVar(&c.Raw, "r", false, "raw output - disable text formatting")
+	flag.Var(&c.Demand, "d", "same as demand")
 	flag.Var(&c.Demand, "demand", "specifies on-demand targets")
 
 	flag.Parse()

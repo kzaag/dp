@@ -94,8 +94,14 @@ func (ctx *Ctx) ExecTarget(
 			cmn.CndPrintfln(
 				uargv.Raw,
 				cmn.PrintflnNotify,
-				"TARGET %s: %s:%s@%s exec: %d/%s",
-				target.Name, target.User, target.Database, target.Server, i, e.Type)
+				"",
+				"%v%s %s@%s %d/%s%v",
+				cmn.ForeBlue,
+				target.Name,
+				target.Database,
+				target.Server[0],
+				i, e.Type,
+				cmn.AttrOff)
 		}
 
 		switch e.Type {
@@ -125,7 +131,7 @@ func (ctx *Ctx) ExecTarget(
 			case "ignore":
 				break
 			case "warn":
-				cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "%v.", err)
+				cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "    ", "%v.", err)
 			default:
 				cmn.CndPrintError(uargv.Raw, err)
 				return fmt.Errorf("Terminated execution due to errors")

@@ -24,8 +24,8 @@ func (ctx *Ctx) ExecLines(
 		if strings.TrimSpace(cc[i]) == "" {
 			continue
 		}
+		fmt.Printf("%s\n", cc[i])
 		if uargv.Verbose {
-			fmt.Println(cc[i])
 			start = time.Now()
 		}
 		if uargv.Execute {
@@ -41,6 +41,7 @@ func (ctx *Ctx) ExecLines(
 			cmn.CndPrintfln(
 				uargv.Raw,
 				cmn.PrintflnSuccess,
+				"    ",
 				"Query completed in %v.", elapsed)
 		}
 		done++
@@ -50,6 +51,7 @@ func (ctx *Ctx) ExecLines(
 		cmn.CndPrintln(
 			uargv.Raw,
 			cmn.PrintflnSuccess,
+			"",
 			"Already up to date.")
 	}
 
@@ -84,6 +86,7 @@ func (ctx *Ctx) ExecFile(
 		cmn.CndPrintfln(
 			uargv.Raw,
 			cmn.PrintflnSuccess,
+			"    ",
 			"Query completed in %v.", el)
 	}
 

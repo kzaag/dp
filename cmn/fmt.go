@@ -35,8 +35,15 @@ func FPrintflnTrailing(f *os.File, seq AnsiFlag, format string, args ...interfac
 		args...)
 }
 
-func PrintflnSuccess(_fmt string, argv ...interface{}) {
-	FPrintflnTrailing(os.Stdout, ForeGreen, _fmt, argv...)
+const MediumMark string = "\u2713"
+
+func PrintflnSuccess(prefix, _fmt string, argv ...interface{}) {
+	fmt.Fprintf(
+		os.Stderr,
+		fmt.Sprintf("%s%v%s %s%v\n",
+			prefix, ForeGreen, MediumMark, _fmt, AttrOff),
+		argv...)
+	//FPrintflnTrailing(os.Stdout, ForeGreen, _fmt, argv...)
 }
 
 func PrintflnError(_fmt string, argv ...interface{}) {
@@ -47,12 +54,26 @@ func PrintError(err error) {
 	PrintflnError("%s", err)
 }
 
-func PrintflnWarn(_fmt string, argv ...interface{}) {
-	FPrintflnTrailing(os.Stderr, ForeYellow, _fmt, argv...)
+const MediumX string = "\u2715"
+
+func PrintflnWarn(prefix, _fmt string, argv ...interface{}) {
+	fmt.Fprintf(
+		os.Stderr,
+		fmt.Sprintf("%s%v%s %s%v\n",
+			prefix, ForeYellow, MediumX, _fmt, AttrOff),
+		argv...)
+	//FPrintflnTrailing(os.Stderr, ForeYellow, _fmt, argv...)
 }
 
-func PrintflnNotify(_fmt string, argv ...interface{}) {
-	FPrintflnTrailing(os.Stdout, ForeBlue, _fmt, argv...)
+const MediumBulletPoint string = "\u2022"
+
+func PrintflnNotify(prefix, _fmt string, argv ...interface{}) {
+	fmt.Fprintf(
+		os.Stdout,
+		fmt.Sprintf("%s%v%s%v %s\n",
+			prefix, ForeBlue, MediumBulletPoint, AttrOff, _fmt),
+		argv...)
+	//FPrintflnTrailing(os.Stdout, ForeBlue, _fmt, argv...)
 }
 
 /*
@@ -62,25 +83,26 @@ func PrintflnNotify(_fmt string, argv ...interface{}) {
 */
 func CndPrintfln(
 	fmtdisable bool,
-	fptr func(string, ...interface{}),
-	_fmt string, argv ...interface{}) {
+	fptr func(string, string, ...interface{}),
+	prefix, _fmt string, argv ...interface{}) {
 
 	if fmtdisable {
 		fmt.Printf(fmt.Sprintf("%s\n", _fmt), argv...)
 	} else {
-		fptr(_fmt, argv...)
+		fptr(prefix, _fmt, argv...)
 	}
 }
 
 func CndPrintln(
 	fmtdisable bool,
-	fptr func(string, ...interface{}),
+	fptr func(string, string, ...interface{}),
+	prefix,
 	text string) {
 
 	if fmtdisable {
-		fmt.Println(text)
+		fmt.Printf("%s\n", text)
 	} else {
-		fptr("%s", text)
+		fptr(prefix, "%s", text)
 	}
 }
 
