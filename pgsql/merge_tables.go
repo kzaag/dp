@@ -208,11 +208,11 @@ func MergeIx(
 	matchedIxs := list.New()
 	if localTable.Indexes != nil && len(localTable.Indexes) > 0 {
 		for i := 0; i < len(localTable.Indexes); i++ {
-			userUq := &localTable.Indexes[i]
+			userIx := &localTable.Indexes[i]
 			var index int = -1
 			if remTable != nil && remTable.Indexes != nil {
 				for j := 0; j < len(remTable.Indexes); j++ {
-					if remTable.Indexes[j].Name == userUq.Name {
+					if remTable.Indexes[j].Name == userIx.Name {
 						index = j
 					}
 				}
@@ -220,14 +220,14 @@ func MergeIx(
 
 			if index < 0 {
 
-				MergeAddOperation(ss.Create, mrg.AddIndex(localTable.Name, userUq))
+				MergeAddOperation(ss.Create, mrg.AddIndex(localTable.Name, userIx))
 
 			} else {
 				matchedIxs.PushBack(index)
 
-				if mrg.AddIndex("", userUq) != mrg.AddIndex("", &remTable.Indexes[index]) {
+				if mrg.AddIndex("", userIx) != mrg.AddIndex("", &remTable.Indexes[index]) {
 					MergeAddOperation(ss.Drop, mrg.DropIndex(localTable.Name, &remTable.Indexes[index]))
-					MergeAddOperation(ss.Create, mrg.AddIndex(localTable.Name, userUq))
+					MergeAddOperation(ss.Create, mrg.AddIndex(localTable.Name, userIx))
 				}
 			}
 		}

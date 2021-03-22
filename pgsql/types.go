@@ -19,11 +19,11 @@ type IndexColumn struct {
 }
 
 type Index struct {
-	Name      string
-	Type      string
-	Is_unique bool
-	Columns   []IndexColumn
-	Tags      map[string]string
+	Name         string
+	Is_clustered bool
+	//Is_unique bool
+	Columns []IndexColumn
+	Using   string
 }
 
 type ConstraintColumn struct {
@@ -86,8 +86,6 @@ type Column struct {
 	Nullable  bool
 	Identity  bool
 
-	// metadata which specifies extra behaviour about column in specific dbms
-	// like Pgsql composite type column which cannot be "not null", or different add/drop/alter syntax applies
 	Tags map[string]struct{}
 }
 

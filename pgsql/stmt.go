@@ -177,28 +177,19 @@ func StmtCreateTable(t *Table) string {
 }
 
 func StmtAddIndex(tableName string, ix *Index) string {
-	unique := ""
-	if ix.Is_unique {
-		unique = "UNIQUE "
-	}
-
-	var t string
-
-	if ix.Type != "" {
-		t = strings.ToUpper(ix.Type) + " "
-	}
+	// unique := ""
+	// if ix.Is_unique {
+	// 	unique = "UNIQUE "
+	// }
 
 	using := ""
 
-	if ix.Tags != nil {
-		if using = ix.Tags["using"]; using != "" {
-			using = " USING " + using
-		}
+	if ix.Using != "" {
+		using = " USING " + ix.Using
 	}
 
 	ret :=
-		"CREATE " + unique +
-			t + "INDEX " +
+		"CREATE INDEX " +
 			ix.Name + " ON " + tableName + using + " ("
 
 	isFirst := true
@@ -246,6 +237,10 @@ func StmtAddIndex(tableName string, ix *Index) string {
 	}
 
 	ret += ";\n"
+
+	if ix.Is_clustered {
+		ret += "CLUSTER " + tableName + " USING " + ix.Name + ";\n"
+	}
 
 	return ret
 }

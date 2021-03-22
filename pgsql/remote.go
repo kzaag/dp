@@ -382,7 +382,7 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]Index, error) {
 	rows, err = db.Query(
 		`select
 			i.relname as index_name,
-			ix.indisunique as is_unique,
+			--ix.indisunique as is_unique,
 			ix.indisclustered as is_clustered,
 			am.amname as type
 		from
@@ -410,13 +410,9 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]Index, error) {
 		var k Index
 		var c bool
 		var t string
-		err := rows.Scan(&k.Name, &k.Is_unique, &c, &t)
-		if c {
-			k.Type = "clustered"
-		}
-		k.Tags = map[string]string{
-			"using": t,
-		}
+		err := rows.Scan(&k.Name, &c, &t)
+		k.Is_clustered = c
+		k.Using = t
 		if err != nil {
 			panic(err)
 		}

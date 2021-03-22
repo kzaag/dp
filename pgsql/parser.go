@@ -45,7 +45,8 @@ func ParserValidateIndex(ixs []Index) error {
 		for i := 0; i < len(ix.Columns); i++ {
 			c := ix.Columns[i]
 			if c.Name == "" {
-				return __ParserElevateErrorIndex(ix.Name, fmt.Errorf("column at index %d doesnt have name specified", i))
+				return __ParserElevateErrorIndex(ix.Name,
+					fmt.Errorf("column at index %d doesnt have name specified", i))
 			}
 		}
 	}
@@ -301,11 +302,14 @@ func ParserGetValidateObject(path string, fc []byte, args interface{}) error {
 		err = ParserValidateTable(ctx.Stmt, obj.Table, path)
 		// set default index type
 		for i := 0; i < len(obj.Table.Indexes); i++ {
-			if obj.Table.Indexes[i].Tags == nil {
-				obj.Table.Indexes[i].Tags = map[string]string{}
-			}
-			if c := obj.Table.Indexes[i].Tags["using"]; c == "" {
-				obj.Table.Indexes[i].Tags["using"] = "btree"
+			// if obj.Table.Indexes[i].Tags == nil {
+			// 	obj.Table.Indexes[i].Tags = map[string]string{}
+			// }
+			// if c := obj.Table.Indexes[i].Tags["using"]; c == "" {
+			// 	obj.Table.Indexes[i].Tags["using"] = "btree"
+			// }
+			if obj.Table.Indexes[i].Using == "" {
+				obj.Table.Indexes[i].Using = "btree"
 			}
 		}
 	} else {
