@@ -707,3 +707,82 @@ func MergeFindTable(name string, tables []Table) *Table {
 	}
 	return t
 }
+
+func MergeTables(ctx *StmtCtx, ts *MergeTableCtx, ss *MergeScriptCtx) {
+
+	var devnull string
+
+	for i := 0; i < len(ts.LocalTables); i++ {
+
+		if t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables); t == nil {
+
+			*ss.Create += ctx.CreateTable(&ts.LocalTables[i])
+
+		} else {
+
+			if t.Type != ts.LocalTables[i].Type {
+
+				MergeAddOperation(ss.Drop, ctx.DropTable(t))
+				*ss.Create += ctx.CreateTable(&ts.LocalTables[i])
+
+				// modifying table buffers is not really the way of this algorithm
+				// so this will need to be removed eventually
+				t.Check = nil
+				t.Foreign = nil
+				t.Indexes = nil
+				t.Primary = nil
+				t.Unique = nil
+
+			}
+
+		}
+	}
+
+	drop := ss.Drop
+	ss.Drop = &devnull
+
+	for i := 0; i < len(ts.LocalTables); i++ {
+
+		t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		MergeColumns(ctx, &ts.LocalTables[i], t, ts, ss)
+
+	}
+
+	ss.Drop = drop
+
+	for i := 0; i < len(ts.LocalTables); i++ {
+
+		t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		MergePrimary(ctx, &ts.LocalTables[i], t, ss, ts)
+
+	}
+
+	for i := 0; i < len(ts.LocalTables); i++ {
+
+		t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		MergeUnique(ctx, &ts.LocalTables[i], t, ss)
+
+	}
+
+	for i := 0; i < len(ts.LocalTables); i++ {
+
+		t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		MergeFK(ctx, &ts.LocalTables[i], t, ss)
+		MergeCheck(ctx, &ts.LocalTables[i], t, ss)
+		MergeIx(ctx, &ts.LocalTables[i], t, ss)
+
+	}
+
+	create := ss.Create
+	ss.Create = &devnull
+
+	for i := 0; i < len(ts.LocalTables); i++ {
+
+		t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		MergeColumns(ctx, &ts.LocalTables[i], t, ts, ss)
+
+	}
+
+	ss.Create = create
+
+}
