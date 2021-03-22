@@ -2,6 +2,7 @@ package pgsql
 
 import (
 	"container/list"
+	"fmt"
 	"strings"
 )
 
@@ -170,6 +171,7 @@ func MergeColumns(
 
 			} else {
 
+				fmt.Println(dc.Type, dc.Identity)
 				MergeAddOperation(ss.Create, rem.AlterColumn(localTable.Name, dc, uc))
 
 			}
