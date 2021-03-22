@@ -1,6 +1,7 @@
 package pgsql
 
 import (
+	"log"
 	"strconv"
 	"strings"
 )
@@ -262,6 +263,21 @@ func StmtColumnType(column *Column) string {
 	}
 	cs := ""
 	switch strings.ToLower(column.Type) {
+	case "smallserial":
+		fallthrough
+	case "serial 2":
+		fallthrough
+	case "serial 4":
+		fallthrough
+	case "serial":
+		fallthrough
+	case "bigserial":
+		log.Fatal(`SERIAL data types are not supported in this version.
+		Use identity to flag column as auto generated, like so:
+		columns:
+		 - name: id
+		   type: bigint
+		   identity: true`)
 	case "bit":
 		fallthrough
 	case "varbit":
@@ -299,8 +315,6 @@ func StmtColumnType(column *Column) string {
 	case "int8":
 		fallthrough
 	case "serial8":
-		fallthrough
-	case "bigserial":
 		fallthrough
 	case "bool":
 		if column.Type == "bool" {
@@ -378,14 +392,6 @@ func StmtColumnType(column *Column) string {
 		if column.Type == "int2" {
 			column.Type = "smallint"
 		}
-		fallthrough
-	case "smallserial":
-		fallthrough
-	case "serial 2":
-		fallthrough
-	case "serial":
-		fallthrough
-	case "serial 4":
 		fallthrough
 	case "text":
 		fallthrough
