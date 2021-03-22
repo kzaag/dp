@@ -3,8 +3,6 @@ package pgsql
 import (
 	"container/list"
 	"database/sql"
-
-	"github.com/kzaag/dp/rdbms"
 )
 
 func RemoteGetEnum(db *sql.DB) ([]Type, error) {
@@ -100,7 +98,7 @@ func RemoteGetComposite(db *sql.DB) ([]Type, error) {
 			var colname string
 			var coltype string
 			err := rows.Scan(&colname, &coltype)
-			c := rdbms.Column{
+			c := Column{
 				Name:      colname,
 				Type:      "",
 				FullType:  coltype,
@@ -118,10 +116,10 @@ func RemoteGetComposite(db *sql.DB) ([]Type, error) {
 			cols.PushBack(c)
 		}
 
-		tp.Columns = make([]rdbms.Column, cols.Len())
+		tp.Columns = make([]Column, cols.Len())
 
 		for i, x := 0, cols.Front(); x != nil; i, x = i+1, x.Next() {
-			tp.Columns[i] = x.Value.(rdbms.Column)
+			tp.Columns[i] = x.Value.(Column)
 		}
 	}
 
@@ -162,7 +160,7 @@ func RemoteGetTypes(db *sql.DB, localTypes []Type) ([]Type, error) {
 	return cb, nil
 }
 
-func RemoteGetAllPK(db *sql.DB, tableName string) (*rdbms.PrimaryKey, error) {
+func RemoteGetAllPK(db *sql.DB, tableName string) (*PrimaryKey, error) {
 
 	var rows *sql.Rows
 	var err error
@@ -180,7 +178,7 @@ func RemoteGetAllPK(db *sql.DB, tableName string) (*rdbms.PrimaryKey, error) {
 		return nil, nil
 	}
 
-	var ret rdbms.PrimaryKey
+	var ret PrimaryKey
 	if err = rows.Scan(&ret.Name); err != nil {
 		return nil, err
 	}
@@ -193,7 +191,7 @@ func RemoteGetAllPK(db *sql.DB, tableName string) (*rdbms.PrimaryKey, error) {
 		return nil, err
 	}
 
-	cols, err := rdbms.HelperMapCColumns(rows)
+	cols, err := HelperMapCColumns(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +201,7 @@ func RemoteGetAllPK(db *sql.DB, tableName string) (*rdbms.PrimaryKey, error) {
 	return &ret, nil
 }
 
-func RemoteGetAllColumn(db *sql.DB, tableName string) ([]rdbms.Column, error) {
+func RemoteGetAllColumn(db *sql.DB, tableName string) ([]Column, error) {
 
 	var rows *sql.Rows
 	var err error
@@ -233,7 +231,7 @@ func RemoteGetAllColumn(db *sql.DB, tableName string) ([]rdbms.Column, error) {
 	return c, nil
 }
 
-func RemoteGetAllUnique(db *sql.DB, tableName string) ([]rdbms.Unique, error) {
+func RemoteGetAllUnique(db *sql.DB, tableName string) ([]Unique, error) {
 
 	var rows *sql.Rows
 	var err error
@@ -248,7 +246,7 @@ func RemoteGetAllUnique(db *sql.DB, tableName string) ([]rdbms.Unique, error) {
 
 	tmp := list.New()
 	for rows.Next() {
-		var k rdbms.Unique
+		var k Unique
 		err := rows.Scan(&k.Name)
 		if err != nil {
 			return nil, err
@@ -257,9 +255,9 @@ func RemoteGetAllUnique(db *sql.DB, tableName string) ([]rdbms.Unique, error) {
 	}
 
 	defer rows.Close()
-	ret := make([]rdbms.Unique, tmp.Len())
+	ret := make([]Unique, tmp.Len())
 	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
-		c := x.Value.(rdbms.Unique)
+		c := x.Value.(Unique)
 		rows, err = db.Query(
 			`select column_name, false as Is_descending
 			from information_schema.constraint_column_usage 
@@ -267,7 +265,7 @@ func RemoteGetAllUnique(db *sql.DB, tableName string) ([]rdbms.Unique, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.Columns, err = rdbms.HelperMapCColumns(rows)
+		c.Columns, err = HelperMapCColumns(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -277,7 +275,7 @@ func RemoteGetAllUnique(db *sql.DB, tableName string) ([]rdbms.Unique, error) {
 	return ret, nil
 }
 
-func RemoteGetAllCheck(db *sql.DB, tableName string) ([]rdbms.Check, error) {
+func RemoteGetAllCheck(db *sql.DB, tableName string) ([]Check, error) {
 
 	var rows *sql.Rows
 	var err error
@@ -295,7 +293,7 @@ func RemoteGetAllCheck(db *sql.DB, tableName string) ([]rdbms.Check, error) {
 	}
 
 	defer rows.Close()
-	c, err := rdbms.HelperMapChecks(rows)
+	c, err := HelperMapChecks(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +301,7 @@ func RemoteGetAllCheck(db *sql.DB, tableName string) ([]rdbms.Check, error) {
 	return c, nil
 }
 
-func RemoteGetAllFK(db *sql.DB, tableName string) ([]rdbms.ForeignKey, error) {
+func RemoteGetAllFK(db *sql.DB, tableName string) ([]ForeignKey, error) {
 
 	var rows *sql.Rows
 	var err error
@@ -320,7 +318,7 @@ func RemoteGetAllFK(db *sql.DB, tableName string) ([]rdbms.ForeignKey, error) {
 	tmp := list.New()
 
 	for rows.Next() {
-		var k rdbms.ForeignKey
+		var k ForeignKey
 		err := rows.Scan(&k.Name, &k.Ref_table)
 		if err != nil {
 			return nil, err
@@ -328,9 +326,9 @@ func RemoteGetAllFK(db *sql.DB, tableName string) ([]rdbms.ForeignKey, error) {
 		tmp.PushBack(k)
 	}
 
-	ret := make([]rdbms.ForeignKey, tmp.Len())
+	ret := make([]ForeignKey, tmp.Len())
 	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
-		fk := x.Value.(rdbms.ForeignKey)
+		fk := x.Value.(ForeignKey)
 
 		rows, err = db.Query(
 			`select update_rule, delete_rule from information_schema.referential_constraints 
@@ -355,7 +353,7 @@ func RemoteGetAllFK(db *sql.DB, tableName string) ([]rdbms.ForeignKey, error) {
 			return nil, err
 		}
 
-		fk.Columns, err = rdbms.HelperMapCColumns(rows)
+		fk.Columns, err = HelperMapCColumns(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -367,7 +365,7 @@ func RemoteGetAllFK(db *sql.DB, tableName string) ([]rdbms.ForeignKey, error) {
 		if err != nil {
 			return nil, err
 		}
-		fk.Ref_columns, err = rdbms.HelperMapCColumns(rows)
+		fk.Ref_columns, err = HelperMapCColumns(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -377,7 +375,7 @@ func RemoteGetAllFK(db *sql.DB, tableName string) ([]rdbms.ForeignKey, error) {
 	return ret, nil
 }
 
-func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
+func RemoteGetAllIx(db *sql.DB, tableName string) ([]Index, error) {
 
 	var rows *sql.Rows
 	var err error
@@ -409,7 +407,7 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
 	tmp := list.New()
 
 	for rows.Next() {
-		var k rdbms.Index
+		var k Index
 		var c bool
 		var t string
 		err := rows.Scan(&k.Name, &k.Is_unique, &c, &t)
@@ -425,9 +423,9 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
 		tmp.PushBack(k)
 	}
 
-	ret := make([]rdbms.Index, tmp.Len())
+	ret := make([]Index, tmp.Len())
 	for i, x := 0, tmp.Front(); x != nil; i, x = i+1, x.Next() {
-		c := x.Value.(rdbms.Index)
+		c := x.Value.(Index)
 
 		rows, err = db.Query(
 			`SELECT 
@@ -462,7 +460,7 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
 			return nil, err
 		}
 		defer rows.Close()
-		c.Columns, err = rdbms.HelperMapIxColumns(rows)
+		c.Columns, err = HelperMapIxColumns(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -472,7 +470,7 @@ func RemoteGetAllIx(db *sql.DB, tableName string) ([]rdbms.Index, error) {
 	return ret, nil
 }
 
-func RemoteGetTypedTableInfo(db *sql.DB, t *rdbms.Table) error {
+func RemoteGetTypedTableInfo(db *sql.DB, t *Table) error {
 
 	var err error
 	var rows *sql.Rows
@@ -500,7 +498,7 @@ func RemoteGetTypedTableInfo(db *sql.DB, t *rdbms.Table) error {
 	return nil
 }
 
-func RemoteGetTable(db *sql.DB, tableName string) (*rdbms.Table, error) {
+func RemoteGetTable(db *sql.DB, tableName string) (*Table, error) {
 
 	cols, err := RemoteGetAllColumn(db, tableName)
 	if err != nil {
@@ -536,7 +534,7 @@ func RemoteGetTable(db *sql.DB, tableName string) (*rdbms.Table, error) {
 		return nil, err
 	}
 
-	var tbl rdbms.Table
+	var tbl Table
 	tbl.Check = c
 	tbl.Unique = uq
 	tbl.Name = tableName
@@ -552,9 +550,9 @@ func RemoteGetTable(db *sql.DB, tableName string) (*rdbms.Table, error) {
 	return &tbl, nil
 }
 
-func RemoteGetMatchedTables(db *sql.DB, userTables []rdbms.Table) ([]rdbms.Table, error) {
+func RemoteGetMatchedTables(db *sql.DB, userTables []Table) ([]Table, error) {
 
-	tbls := make([]rdbms.Table, len(userTables))
+	tbls := make([]Table, len(userTables))
 
 	for i := 0; i < len(userTables); i++ {
 		tbl, err := RemoteGetTable(db, userTables[i].Name)

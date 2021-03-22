@@ -1,4 +1,4 @@
-package rdbms
+package pgsql
 
 import "database/sql"
 

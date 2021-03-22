@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/kzaag/dp/rdbms"
 	"github.com/kzaag/dp/target"
 
 	"golang.org/x/crypto/ssh/terminal"
@@ -75,7 +74,7 @@ func TargetGetMergeScript(
 	dbCtx interface{}, ectx *target.Target, args []string,
 ) (string, error) {
 	db := dbCtx.(*sql.DB)
-	ts := rdbms.MergeTableCtx{}
+	ts := MergeTableCtx{}
 	tt := MergeTypeCtx{}
 	ctx := StmtNew()
 	var mergeScript string
@@ -112,10 +111,10 @@ func TargetGetMergeScript(
 
 func TargetCtxNew() *target.Ctx {
 	return &target.Ctx{
-		DbClose:        rdbms.DbClose,
-		DbExec:         rdbms.DbExec,
+		DbClose:        DbClose,
+		DbExec:         DbExec,
 		DbNew:          TargetGetDB,
-		DbPing:         rdbms.DbPing,
+		DbPing:         DbPing,
 		DbSuffix:       ".sql",
 		GetMergeScript: TargetGetMergeScript,
 	}

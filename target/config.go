@@ -96,7 +96,7 @@ func NewConfigFromPath(configPath string) (*Config, error) {
 
 	if c.Version != Version {
 		return nil, fmt.Errorf(
-			"Config requested version %s which is incompatible with current module version %s",
+			"dp: config requested version %s which is incompatible with current module version %s.\nUpgrade your dp version",
 			c.Version, Version)
 	}
 

@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kzaag/dp/cass"
 	"github.com/kzaag/dp/cmn"
-	"github.com/kzaag/dp/mssql"
 	"github.com/kzaag/dp/pgsql"
 	"github.com/kzaag/dp/target"
 
-	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/lib/pq"
 )
 
@@ -40,10 +37,6 @@ func main() {
 	switch c.Driver {
 	case "postgres":
 		ctx = pgsql.TargetCtxNew()
-	case "mssql":
-		ctx = mssql.TargetCtxNew()
-	case "cassandra":
-		ctx = cass.TargetCtxNew()
 	default:
 		cmn.CndPrintError(args.Raw, fmt.Errorf("Unkown driver: %s", c.Driver))
 		os.Exit(1)

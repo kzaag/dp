@@ -2,8 +2,6 @@ package pgsql
 
 import (
 	"container/list"
-
-	"github.com/kzaag/dp/rdbms"
 )
 
 type MergeTypeCtx struct {
@@ -12,12 +10,12 @@ type MergeTypeCtx struct {
 }
 
 func MergeDropTypeRefs(
-	m *rdbms.StmtCtx,
-	ts *rdbms.MergeTableCtx,
-	ss *rdbms.MergeScriptCtx,
-	lt *Type) []rdbms.MergeDropCtx {
+	m *StmtCtx,
+	ts *MergeTableCtx,
+	ss *MergeScriptCtx,
+	lt *Type) []MergeDropCtx {
 
-	var ret []rdbms.MergeDropCtx
+	var ret []MergeDropCtx
 
 	for i := 0; i < len(ts.RemoteTables); i++ {
 
@@ -29,8 +27,8 @@ func MergeDropTypeRefs(
 
 			if c.FullType == lt.Name {
 
-				rdbms.MergeAddOperation(ss.Drop, m.DropColumn(t.Name, c))
-				ret = append(ret, rdbms.MergeDropNewC(t.Name, c))
+				MergeAddOperation(ss.Drop, m.DropColumn(t.Name, c))
+				ret = append(ret, MergeDropNewC(t.Name, c))
 
 			}
 
@@ -42,22 +40,22 @@ func MergeDropTypeRefs(
 }
 
 func MergeDropCompositeTypeColumnRefs(
-	r *rdbms.StmtCtx,
+	r *StmtCtx,
 	lt *Type,
-	ts *rdbms.MergeTableCtx,
-	ss *rdbms.MergeScriptCtx,
-	c *rdbms.Column) []rdbms.MergeDropCtx {
+	ts *MergeTableCtx,
+	ss *MergeScriptCtx,
+	c *Column) []MergeDropCtx {
 
-	var ret []rdbms.MergeDropCtx
+	var ret []MergeDropCtx
 
 	for i := 0; i < len(ts.RemoteTables); i++ {
 
-		var t *rdbms.Table = &ts.RemoteTables[i]
+		var t *Table = &ts.RemoteTables[i]
 
 		if t.Type != lt.Name {
 			continue
 		}
-		ret = append(ret, rdbms.MergeDropColRefs(r, c, t, ts.RemoteTables, ss.Drop)...)
+		ret = append(ret, MergeDropColRefs(r, c, t, ts.RemoteTables, ss.Drop)...)
 
 	}
 
@@ -66,8 +64,8 @@ func MergeDropCompositeTypeColumnRefs(
 
 func MergeComposite(
 	r *StmtCtx,
-	ts *rdbms.MergeTableCtx,
-	ss *rdbms.MergeScriptCtx,
+	ts *MergeTableCtx,
+	ss *MergeScriptCtx,
 	lt *Type,
 	rt *Type) {
 
@@ -85,16 +83,16 @@ func MergeComposite(
 		}
 
 		if index < 0 {
-			rdbms.MergeAddOperation(ss.Create, r.AddColumn(lt.Name, lc))
+			MergeAddOperation(ss.Create, r.AddColumn(lt.Name, lc))
 		} else {
 			rc := &rt.Columns[index]
 			matchedIxs.PushBack(index)
 
-			if rdbms.MergeCompareColumn(&r.StmtCtx, lc, rc) {
+			if MergeCompareColumn(r, lc, rc) {
 				continue
 			}
 
-			rdbms.MergeAddOperation(ss.Create, r.AlterColumn(lt.Name, rc, lc))
+			MergeAddOperation(ss.Create, r.AlterColumn(lt.Name, rc, lc))
 
 		}
 	}
@@ -113,21 +111,21 @@ func MergeComposite(
 
 		dc := &rt.Columns[i]
 
-		db := MergeDropCompositeTypeColumnRefs(&r.StmtCtx, rt, ts, ss, dc)
+		db := MergeDropCompositeTypeColumnRefs(r, rt, ts, ss, dc)
 		//drefs := MergeDropColRefs(rem, dc, remTable, mrg.remTables, mrg.drop)
 
-		rdbms.MergeAddOperation(ss.Drop, r.DropColumn(lt.Name, dc))
+		MergeAddOperation(ss.Drop, r.DropColumn(lt.Name, dc))
 
 		//MergeRecreateColRefs(rem, mrg.localTables, mrg.create, drefs)
-		rdbms.MergeDropRecreate(&r.StmtCtx, db, ss, ts)
+		MergeDropRecreate(r, db, ss, ts)
 	}
 
 }
 
 func MergeEnum(
 	r *StmtCtx,
-	ts *rdbms.MergeTableCtx,
-	ss *rdbms.MergeScriptCtx,
+	ts *MergeTableCtx,
+	ss *MergeScriptCtx,
 	lt *Type, rt *Type) {
 
 	var eq bool = true
@@ -153,19 +151,19 @@ func MergeEnum(
 		return
 	}
 
-	db := MergeDropTypeRefs(&r.StmtCtx, ts, ss, rt)
+	db := MergeDropTypeRefs(r, ts, ss, rt)
 
-	rdbms.MergeAddOperation(ss.Drop, r.DropType(rt))
+	MergeAddOperation(ss.Drop, r.DropType(rt))
 
-	rdbms.MergeAddOperation(ss.Create, r.AddType(lt))
+	MergeAddOperation(ss.Create, r.AddType(lt))
 
-	rdbms.MergeDropRecreate(&r.StmtCtx, db, ss, ts)
+	MergeDropRecreate(r, db, ss, ts)
 }
 
 func MergeType(
 	r *StmtCtx,
-	ts *rdbms.MergeTableCtx,
-	ss *rdbms.MergeScriptCtx,
+	ts *MergeTableCtx,
+	ss *MergeScriptCtx,
 	lt *Type, rt *Type) {
 
 	if rt.Type == lt.Type {
@@ -201,8 +199,8 @@ func MergeFindType(t *Type, ts []Type) *Type {
 func MergeTypes(
 	m *StmtCtx,
 	tt *MergeTypeCtx,
-	ts *rdbms.MergeTableCtx,
-	ss *rdbms.MergeScriptCtx) {
+	ts *MergeTableCtx,
+	ss *MergeScriptCtx) {
 
 	for i := 0; i < len(tt.localTypes); i++ {
 
@@ -214,7 +212,7 @@ func MergeTypes(
 
 		} else {
 
-			rdbms.MergeAddOperation(ss.Create, m.AddType(lt))
+			MergeAddOperation(ss.Create, m.AddType(lt))
 
 		}
 
@@ -222,13 +220,13 @@ func MergeTypes(
 
 }
 
-func MergeTables(ctx *StmtCtx, ts *rdbms.MergeTableCtx, ss *rdbms.MergeScriptCtx) {
+func MergeTables(ctx *StmtCtx, ts *MergeTableCtx, ss *MergeScriptCtx) {
 
 	var devnull string
 
 	for i := 0; i < len(ts.LocalTables); i++ {
 
-		if t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables); t == nil {
+		if t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables); t == nil {
 
 			*ss.Create += ctx.CreateTable(&ts.LocalTables[i])
 
@@ -236,7 +234,7 @@ func MergeTables(ctx *StmtCtx, ts *rdbms.MergeTableCtx, ss *rdbms.MergeScriptCtx
 
 			if t.Type != ts.LocalTables[i].Type {
 
-				rdbms.MergeAddOperation(ss.Drop, ctx.DropTable(t))
+				MergeAddOperation(ss.Drop, ctx.DropTable(t))
 				*ss.Create += ctx.CreateTable(&ts.LocalTables[i])
 
 				// modifying table buffers is not really the way of this algorithm
@@ -257,8 +255,8 @@ func MergeTables(ctx *StmtCtx, ts *rdbms.MergeTableCtx, ss *rdbms.MergeScriptCtx
 
 	for i := 0; i < len(ts.LocalTables); i++ {
 
-		t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
-		rdbms.MergeColumns(&ctx.StmtCtx, &ts.LocalTables[i], t, ts, ss)
+		t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		MergeColumns(ctx, &ts.LocalTables[i], t, ts, ss)
 
 	}
 
@@ -266,24 +264,24 @@ func MergeTables(ctx *StmtCtx, ts *rdbms.MergeTableCtx, ss *rdbms.MergeScriptCtx
 
 	for i := 0; i < len(ts.LocalTables); i++ {
 
-		t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
-		rdbms.MergePrimary(&ctx.StmtCtx, &ts.LocalTables[i], t, ss, ts)
+		t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		MergePrimary(ctx, &ts.LocalTables[i], t, ss, ts)
 
 	}
 
 	for i := 0; i < len(ts.LocalTables); i++ {
 
-		t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
-		rdbms.MergeUnique(&ctx.StmtCtx, &ts.LocalTables[i], t, ss)
+		t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		MergeUnique(ctx, &ts.LocalTables[i], t, ss)
 
 	}
 
 	for i := 0; i < len(ts.LocalTables); i++ {
 
-		t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
-		rdbms.MergeFK(&ctx.StmtCtx, &ts.LocalTables[i], t, ss)
-		rdbms.MergeCheck(&ctx.StmtCtx, &ts.LocalTables[i], t, ss)
-		rdbms.MergeIx(&ctx.StmtCtx, &ts.LocalTables[i], t, ss)
+		t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		MergeFK(ctx, &ts.LocalTables[i], t, ss)
+		MergeCheck(ctx, &ts.LocalTables[i], t, ss)
+		MergeIx(ctx, &ts.LocalTables[i], t, ss)
 
 	}
 
@@ -292,8 +290,8 @@ func MergeTables(ctx *StmtCtx, ts *rdbms.MergeTableCtx, ss *rdbms.MergeScriptCtx
 
 	for i := 0; i < len(ts.LocalTables); i++ {
 
-		t := rdbms.MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
-		rdbms.MergeColumns(&ctx.StmtCtx, &ts.LocalTables[i], t, ts, ss)
+		t := MergeFindTable(ts.LocalTables[i].Name, ts.RemoteTables)
+		MergeColumns(ctx, &ts.LocalTables[i], t, ts, ss)
 
 	}
 
@@ -304,10 +302,10 @@ func MergeTables(ctx *StmtCtx, ts *rdbms.MergeTableCtx, ss *rdbms.MergeScriptCtx
 // merge remote schema with local
 func Merge(
 	mrg *StmtCtx,
-	tableCtx *rdbms.MergeTableCtx,
+	tableCtx *MergeTableCtx,
 	typeCtx *MergeTypeCtx) (string, error) {
 
-	ss := rdbms.MergeScriptCtx{}
+	ss := MergeScriptCtx{}
 
 	drop := ""
 	create := ""

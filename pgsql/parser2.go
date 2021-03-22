@@ -1,4 +1,4 @@
-package rdbms
+package pgsql
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 
 type DDObject struct {
 	Table *Table
+	Type  *Type
 }
 
 type ParseCtx struct {

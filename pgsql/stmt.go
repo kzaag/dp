@@ -3,38 +3,114 @@ package pgsql
 import (
 	"strconv"
 	"strings"
-
-	"github.com/kzaag/dp/rdbms"
 )
 
 type StmtCtx struct {
-	rdbms.StmtCtx
-	// types dont really depend on tables
+	// types dont really depend on the tables in pg
 	DropType func(*Type) string
 	AddType  func(*Type) string
+	//
+	AddColumn      func(string, *Column) string
+	AlterColumn    func(string, *Column, *Column) string
+	DropColumn     func(string, *Column) string
+	ColumnType     func(*Column) string
+	AddIndex       func(string, *Index) string
+	DropIndex      func(string, *Index) string
+	DropConstraint func(string, *Constraint) string
+	AddUnique      func(string, *Unique) string
+	AddCheck       func(string, *Check) string
+	AddFK          func(string, *ForeignKey) string
+	AddPK          func(string, *PrimaryKey) string
+	CreateTable    func(*Table) string
+	DropTable      func(*Table) string
 }
 
 func StmtNew() *StmtCtx {
 	ctx := StmtCtx{}
-	ctx.AddCheck = rdbms.StmtAddCheck
+	ctx.AddCheck = StmtAddCheck
 	ctx.AddColumn = StmtAddColumn
-	ctx.AddFK = rdbms.StmtAddFk
+	ctx.AddFK = StmtAddFk
 	ctx.AddIndex = StmtAddIndex
-	ctx.AddPK = rdbms.StmtAddPK
+	ctx.AddPK = StmtAddPK
 	ctx.AddType = StmtAddType
-	ctx.AddUnique = rdbms.StmtAddUnique
+	ctx.AddUnique = StmtAddUnique
 	ctx.AlterColumn = StmtAlterColumn
 	ctx.ColumnType = StmtColumnType
 	ctx.CreateTable = StmtCreateTable
 	ctx.DropColumn = StmtDropColumn
-	ctx.DropConstraint = rdbms.StmtDropConstraint
+	ctx.DropConstraint = StmtDropConstraint
 	ctx.DropIndex = StmtDropIndex
-	ctx.DropTable = rdbms.StmtDropTable
+	ctx.DropTable = StmtDropTable
 	ctx.DropType = StmtDropType
 	return &ctx
 }
 
-func __StmtDefColumn(column *rdbms.Column) string {
+func StmtConstraintColumn(c ConstraintColumn) string {
+	ret := c.Name
+	if c.Is_descending {
+		ret += " DESC"
+	}
+	return ret
+}
+
+func StmtAddConstraint(tableName string, c *Constraint, cType string) string {
+	var ret string
+	ret += "ALTER TABLE " + tableName + " ADD CONSTRAINT " + c.Name + " " + strings.ToUpper(cType) + " ("
+	for z := 0; z < len(c.Columns); z++ {
+		ret += StmtConstraintColumn(c.Columns[z]) + ","
+	}
+	ret = strings.TrimSuffix(ret, ",")
+	ret += ");\n"
+	return ret
+}
+
+func StmtAddUnique(tableName string, u *Unique) string {
+	return StmtAddConstraint(tableName, &u.Constraint, "unique")
+}
+
+func StmtAddPK(tableName string, pk *PrimaryKey) string {
+	return StmtAddConstraint(tableName, &pk.Constraint, "primary key")
+}
+
+func StmtAddFk(tableName string, fk *ForeignKey) string {
+	var ret string
+	ret += "ALTER TABLE " + tableName + " ADD CONSTRAINT " + fk.Name + " FOREIGN KEY ("
+	for z := 0; z < len(fk.Columns); z++ {
+		ret += StmtConstraintColumn(fk.Columns[z])
+	}
+	ret = strings.TrimSuffix(ret, ",")
+	ret += " ) REFERENCES " + fk.Ref_table + " ( "
+
+	for z := 0; z < len(fk.Ref_columns); z++ {
+		ret += StmtConstraintColumn(fk.Ref_columns[z])
+	}
+	ret = strings.TrimSuffix(ret, ",") + ")"
+
+	if fk.OnDelete != "" && fk.OnDelete != "NO ACTION" {
+		ret += " ON DELETE " + strings.ToUpper(fk.OnDelete)
+	}
+
+	if fk.OnUpdate != "" && fk.OnUpdate != "NO ACTION" {
+		ret += " ON UPDATE " + strings.ToUpper(fk.OnUpdate)
+	}
+
+	ret += ";\n"
+	return ret
+}
+
+func StmtAddCheck(tableName string, c *Check) string {
+	return "ALTER TABLE " + tableName + " ADD CONSTRAINT " + c.Name + " CHECK (" + c.Def + ");\n"
+}
+
+func StmtDropConstraint(tableName string, c *Constraint) string {
+	return "ALTER TABLE " + tableName + " DROP CONSTRAINT " + c.Name + ";\n"
+}
+
+func StmtDropTable(table *Table) string {
+	return "DROP TABLE " + table.Name + ";\n"
+}
+
+func __StmtDefColumn(column *Column) string {
 
 	var cs string
 	cs += column.Name + " " + column.FullType
@@ -78,7 +154,7 @@ func __StmtDefColumn(column *rdbms.Column) string {
 
 //
 
-func StmtCreateTable(t *rdbms.Table) string {
+func StmtCreateTable(t *Table) string {
 
 	ret := ""
 
@@ -100,7 +176,7 @@ func StmtCreateTable(t *rdbms.Table) string {
 	return ret
 }
 
-func StmtAddIndex(tableName string, ix *rdbms.Index) string {
+func StmtAddIndex(tableName string, ix *Index) string {
 	unique := ""
 	if ix.Is_unique {
 		unique = "UNIQUE "
@@ -174,11 +250,11 @@ func StmtAddIndex(tableName string, ix *rdbms.Index) string {
 	return ret
 }
 
-func StmtDropIndex(tableName string, i *rdbms.Index) string {
+func StmtDropIndex(tableName string, i *Index) string {
 	return "DROP INDEX " + i.Name + ";\n"
 }
 
-func StmtColumnType(column *rdbms.Column) string {
+func StmtColumnType(column *Column) string {
 
 	isArr := false
 	if strings.HasPrefix(column.Type, "_") {
@@ -391,7 +467,7 @@ func StmtAddType(t *Type) string {
 				ret += ","
 			}
 			ret += "\n\t"
-			ret += rdbms.StmtColumnNameAndType(&t.Columns[i])
+			ret += StmtColumnNameAndType(&t.Columns[i])
 		}
 
 		ret += "\n);\n"
@@ -400,18 +476,24 @@ func StmtAddType(t *Type) string {
 	return ret
 }
 
+func StmtColumnNameAndType(column *Column) string {
+	var cs string
+	cs += column.Name + " " + column.FullType
+	return cs
+}
+
 func StmtDropType(t *Type) string {
 	return "DROP TYPE " + t.Name + ";\n"
 }
 
-func StmtDropColumn(tablename string, c *rdbms.Column) string {
+func StmtDropColumn(tablename string, c *Column) string {
 	if c.HasTag(TypeComposite) {
 		return "ALTER TYPE " + tablename + " DROP ATTRIBUTE " + c.Name + " CASCADE;\n"
 	}
 	return "ALTER TABLE " + tablename + " DROP COLUMN " + c.Name + ";\n"
 }
 
-func StmtAlterColumn(tableName string, sc, c *rdbms.Column) string {
+func StmtAlterColumn(tableName string, sc, c *Column) string {
 
 	ret := ""
 
@@ -450,7 +532,7 @@ func StmtAlterColumn(tableName string, sc, c *rdbms.Column) string {
 	return ret
 }
 
-func StmtAddColumn(tableName string, c *rdbms.Column) string {
+func StmtAddColumn(tableName string, c *Column) string {
 
 	s := __StmtDefColumn(c)
 

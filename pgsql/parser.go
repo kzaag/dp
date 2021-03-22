@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/kzaag/dp/cmn"
-	"github.com/kzaag/dp/rdbms"
 
 	"gopkg.in/yaml.v2"
 )
@@ -27,7 +26,7 @@ func __ParserValidateStrArray(c []string) error {
 	return nil
 }
 
-func ParserValidateType(ctx *rdbms.StmtCtx, t *Type, path string) error {
+func ParserValidateType(ctx *StmtCtx, t *Type, path string) error {
 	if t == nil {
 		return nil
 	}
@@ -39,7 +38,7 @@ func ParserValidateType(ctx *rdbms.StmtCtx, t *Type, path string) error {
 
 	switch t.Type {
 	case TypeComposite:
-		if err := rdbms.ParserValidateColumn(ctx, t.Columns); err != nil {
+		if err := ParserValidateColumn(ctx, t.Columns); err != nil {
 			return ParserElevateErrorType(t.Name, err)
 		}
 		for i := 0; i < len(t.Columns); i++ {
@@ -57,16 +56,6 @@ func ParserValidateType(ctx *rdbms.StmtCtx, t *Type, path string) error {
 	return nil
 }
 
-type DDObject struct {
-	Table *rdbms.Table
-	Type  *Type
-}
-
-type ParseCtx struct {
-	Stmt *StmtCtx
-	ret  []DDObject
-}
-
 func ParserGetValidateObject(path string, fc []byte, args interface{}) error {
 	var err error
 	var obj DDObject
@@ -80,7 +69,7 @@ func ParserGetValidateObject(path string, fc []byte, args interface{}) error {
 		return fmt.Errorf("couldnt validate %s, assert table XOR type failed.", path)
 	}
 	if obj.Table != nil {
-		err = rdbms.ParserValidateTable(&ctx.Stmt.StmtCtx, obj.Table, path)
+		err = ParserValidateTable(ctx.Stmt, obj.Table, path)
 		// set default index type
 		for i := 0; i < len(obj.Table.Indexes); i++ {
 			if obj.Table.Indexes[i].Tags == nil {
@@ -91,7 +80,7 @@ func ParserGetValidateObject(path string, fc []byte, args interface{}) error {
 			}
 		}
 	} else {
-		err = ParserValidateType(&ctx.Stmt.StmtCtx, obj.Type, path)
+		err = ParserValidateType(ctx.Stmt, obj.Type, path)
 	}
 	ctx.ret = append(ctx.ret, obj)
 	return err
