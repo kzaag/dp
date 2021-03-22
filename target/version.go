@@ -1,3 +1,3 @@
 package target
 
-const Version = "v0.2.2"
+const Version = "v1.0.0"

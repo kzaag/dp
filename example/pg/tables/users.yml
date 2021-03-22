@@ -20,8 +20,12 @@ table:
     name: "users_pk"
     columns:
       - name: id
-      # !!!
   unique:
     - name: users_unique_name
       columns:
         - name: name
+  indexes:
+    - name: users_ixx
+      columns:
+        - name: fullname
+      using: hash

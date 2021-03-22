@@ -1,5 +1,5 @@
 driver: postgres
-version: v0.2.2
+version: v1.0.0
 
 base_target: &base_target
   server: ["127.0.0.1"]

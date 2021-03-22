@@ -1,0 +1,4 @@
+[ ] add -a option which would ask user to confirm each statement
+[ ] add -i option which would enable additional debugging information 
+        (that would explain why did program decided to add specific statement)
+[ ] add exec type: query which would output data columns in console
