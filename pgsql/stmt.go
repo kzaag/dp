@@ -130,6 +130,14 @@ func __StmtDefColumn(column *Column) string {
 		cs += " GENERATED ALWAYS AS IDENTITY"
 	}
 
+	if column.Default != "" {
+		d := column.Default
+		if !strings.Contains(d, "::") {
+			d += "::" + strings.ToLower(column.FullType)
+		}
+		cs += " DEFAULT " + d
+	}
+
 	return cs
 }
 
@@ -502,9 +510,17 @@ func StmtAlterColumn(tableName string, sc, c *Column) string {
 		isType := c.HasTag(TypeComposite)
 		s := ""
 		if isType {
-			s = "ALTER TYPE " + tableName + " ALTER ATTRIBUTE " + c.Name + " SET DATA TYPE " + c.FullType + " CASCADE"
+			s = "ALTER TYPE " + tableName +
+				" ALTER ATTRIBUTE " + c.Name +
+				" SET DATA TYPE " + c.FullType +
+				" CASCADE"
 		} else {
-			s = "ALTER TABLE " + tableName + " ALTER COLUMN " + c.Name + " SET DATA TYPE " + c.FullType
+			s = "ALTER TABLE " + tableName +
+				" ALTER COLUMN " + c.Name +
+				" SET DATA TYPE " + c.FullType
+			if c.HintDTUsing != "" {
+				s += " USING " + c.HintDTUsing
+			}
 		}
 
 		// here theoretically could be introduced USING ( ... ) to the alter
@@ -530,6 +546,18 @@ func StmtAlterColumn(tableName string, sc, c *Column) string {
 		ret += s + ";\n"
 	}
 
+	if sc.Default != "" && c.Default == "" {
+		s := "ALTER TABLE " + tableName +
+			" ALTER COLUMN " + c.Name +
+			" DROP DEFAULT"
+		ret += s + ";\n"
+	} else if sc.Default != c.Default {
+		s := "ALTER TABLE " + tableName +
+			" ALTER COLUMN " + c.Name +
+			" SET DEFAULT " + c.Default
+		ret += s + ";\n"
+	}
+
 	return ret
 }
 
@@ -541,5 +569,7 @@ func StmtAddColumn(tableName string, c *Column) string {
 		return "ALTER TYPE " + tableName + " ADD ATTRIBUTE " + s + " CASCADE;\n"
 	}
 
-	return "ALTER TABLE " + tableName + " ADD " + s + ";\n"
+	r := "ALTER TABLE " + tableName + " ADD " + s
+
+	return r + ";\n"
 }

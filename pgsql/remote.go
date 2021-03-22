@@ -214,7 +214,8 @@ func RemoteGetAllColumn(db *sql.DB, tableName string) ([]Column, error) {
 			coalesce(numeric_precision, datetime_precision,  -1), 
 			coalesce(numeric_scale, -1), 
 			coalesce(case when is_nullable = 'YES' then true else false end, false), 
-			coalesce(case when is_identity = 'YES' then true else false end, false) 
+			coalesce(case when is_identity = 'YES' then true else false end, false),
+			coalesce(column_default, '')
 		from information_schema.columns 
 		where table_name = $1
 		order by ordinal_position asc;`, tableName)

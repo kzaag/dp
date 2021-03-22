@@ -85,6 +85,12 @@ type Column struct {
 	Scale     int
 	Nullable  bool
 	Identity  bool
+	Default   string
+	/*
+		special value used during converting column types
+		if specified then during type conversion this will be used
+	*/
+	HintDTUsing string `yaml:"hint_dt_using"`
 
 	Tags map[string]struct{}
 }

@@ -27,7 +27,8 @@ func HelperMapColumns(r *sql.Rows) ([]Column, error) {
 			&el.Precision,
 			&el.Scale,
 			&el.Nullable,
-			&el.Identity)
+			&el.Identity,
+			&el.Default)
 		if err != nil {
 			return nil, err
 		}
