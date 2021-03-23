@@ -1,6 +1,7 @@
 package target
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,25 +13,94 @@ import (
 )
 
 /*
+	preconfig is getting parsed before actual config.
+	preconfig must be contained in any config structure no matter version, it contains version meta data and preprocessor directives
+*/
+type PreConfig struct {
+	Version string
+	/*
+		stupid-simple version of C preprocessor ( but in yaml )
+
+		for example if you place:
+
+		defines:
+			- db : my_database
+			- foo: bar
+
+		will replace any occurrence of
+		${db} with my_database and
+		${foo} with bar
+		ANYWHERE in dp files. It is like preprocessor ->
+			dp-file gets loaded (it may be script, table, type and so on...)
+			all defines are being 'evaluated' from top to bottom
+			file is parsed into yaml structure / executed if sql and so on...
+
+		it also allows for more advanced usage like so:
+
+		defines:
+			- db : test_db
+			- drop_db : drop database ${db}
+			- create_db: create database ${db}
+
+		...
+
+		targets:
+			- name: foo
+			  ....
+			  exec:
+			    - type: stmt
+				  args: ["${drop_db}", "${create_db}"]
+
+	*/
+	Defines []map[string]string
+}
+
+/*
 	these arrays really should be hash tables.
 	deal with it.
 */
 type Config struct {
-	Version string
 	Driver  string
 	Base    string
 	Targets []*Target
+	PreConfig
 }
 
 const notFoundMsg = "stat *.yml: no such file or directory"
 
+func prepareConfig(j []byte) ([]byte, error) {
+	var pc PreConfig
+	if err := yaml.Unmarshal(j, &pc); err != nil {
+		return nil, err
+	}
+
+	if pc.Version != Version {
+		return nil, fmt.Errorf(
+			"dp: config requested version %s which is incompatible with current module version %s.\nUpgrade your dp version",
+			pc.Version, Version)
+	}
+
+	for i := range pc.Defines {
+		for k := range pc.Defines[i] {
+			j = bytes.Replace(j, []byte("${"+k+"}"), []byte(pc.Defines[i][k]), -1)
+		}
+	}
+
+	return j, nil
+}
+
 func createFromText(c *Config, j []byte) error {
+
+	j, err := prepareConfig(j)
+	if err != nil {
+		return err
+	}
+
 	return yaml.Unmarshal(j, c)
 	/*
 		i dont think that dp should support more than 1 config file format
 		return json.Unmarshal(j, c)
 	*/
-
 }
 
 func getBufFromDir(dir string) (string, []byte, error) {
@@ -92,12 +162,6 @@ func NewConfigFromPath(configPath string) (*Config, error) {
 		}
 		dir := filepath.Dir(fpath)
 		c.Base = dir
-	}
-
-	if c.Version != Version {
-		return nil, fmt.Errorf(
-			"dp: config requested version %s which is incompatible with current module version %s.\nUpgrade your dp version",
-			c.Version, Version)
 	}
 
 	return &c, err
