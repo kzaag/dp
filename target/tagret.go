@@ -132,6 +132,9 @@ func (ctx *Ctx) ExecTarget(
 				break
 			case "warn":
 				cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "    ", "%v.", err)
+			case "warn abort":
+				cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "    ", "%v.", err)
+				return nil
 			default:
 				cmn.CndPrintError(uargv.Raw, err)
 				return fmt.Errorf("Terminated execution due to errors")

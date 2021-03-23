@@ -518,8 +518,8 @@ func StmtAlterColumn(tableName string, sc, c *Column) string {
 			s = "ALTER TABLE " + tableName +
 				" ALTER COLUMN " + c.Name +
 				" SET DATA TYPE " + c.FullType
-			if c.HintDTUsing != "" {
-				s += " USING " + c.HintDTUsing
+			if c.HintUsing != "" {
+				s += " USING " + c.HintUsing
 			}
 		}
 

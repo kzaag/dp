@@ -90,7 +90,7 @@ type Column struct {
 		special value used during converting column types
 		if specified then during type conversion this will be used
 	*/
-	HintDTUsing string `yaml:"hint_dt_using"`
+	HintUsing string `yaml:"using"`
 
 	Tags map[string]struct{}
 }
