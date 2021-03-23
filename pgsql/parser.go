@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/kzaag/dp/cmn"
+	"github.com/kzaag/dp/target"
 
 	"gopkg.in/yaml.v2"
 )
@@ -16,8 +17,9 @@ type DDObject struct {
 }
 
 type ParseCtx struct {
-	Stmt *StmtCtx
-	ret  []DDObject
+	Stmt   *StmtCtx
+	Config *target.Config
+	ret    []DDObject
 }
 
 /*
@@ -214,30 +216,35 @@ func ParserValidateTable(ctx *StmtCtx, t *Table, f string) error {
 	return nil
 }
 
-func ParserGetValidateTable(path string, fc []byte, args interface{}) error {
-	var err error
-	var obj DDObject
-	ctx := args.(*ParseCtx)
-	err = yaml.Unmarshal(fc, &obj)
-	if err != nil {
-		return fmt.Errorf("couldnt unmarshal %s %s", path, err.Error())
-	}
-	if err = ParserValidateTable(ctx.Stmt, obj.Table, path); err != nil {
-		return err
-	}
-	ctx.ret = append(ctx.ret, obj)
-	return err
-}
+// func ParserGetValidateTable(path string, fc []byte, args interface{}) error {
+// 	var err error
+// 	var obj DDObject
+// 	ctx := args.(*ParseCtx)
 
-func ParserGetTablesInDir(ctx *StmtCtx, dir string) ([]DDObject, error) {
-	parser := ParseCtx{}
-	parser.Stmt = ctx
-	err := cmn.ParserIterateOverSource(dir, ParserGetValidateTable, &parser)
-	if err != nil {
-		return nil, err
-	}
-	return parser.ret, err
-}
+// 	if fc, err = target.EvaluateDefines(&ctx.Config.PreConfig, fc); err != nil {
+// 		return err
+// 	}
+
+// 	err = yaml.Unmarshal(fc, &obj)
+// 	if err != nil {
+// 		return fmt.Errorf("couldnt unmarshal %s %s", path, err.Error())
+// 	}
+// 	if err = ParserValidateTable(ctx.Stmt, obj.Table, path); err != nil {
+// 		return err
+// 	}
+// 	ctx.ret = append(ctx.ret, obj)
+// 	return err
+// }
+
+// func ParserGetTablesInDir(ctx *StmtCtx, dir string) ([]DDObject, error) {
+// 	parser := ParseCtx{}
+// 	parser.Stmt = ctx
+// 	err := cmn.ParserIterateOverSource(dir, ParserGetValidateTable, &parser)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return parser.ret, err
+// }
 
 func ParserElevateErrorType(tname string, err error) error {
 	return fmt.Errorf("in type %s: %s", tname, err.Error())
@@ -290,6 +297,11 @@ func ParserGetValidateObject(path string, fc []byte, args interface{}) error {
 	var err error
 	var obj DDObject
 	ctx := args.(*ParseCtx)
+
+	if fc, err = target.EvaluateDefines(&ctx.Config.PreConfig, fc); err != nil {
+		return err
+	}
+
 	err = yaml.Unmarshal(fc, &obj)
 	if err != nil {
 		return fmt.Errorf("couldnt unmarshal %s %s", path, err.Error())
@@ -319,9 +331,10 @@ func ParserGetValidateObject(path string, fc []byte, args interface{}) error {
 	return err
 }
 
-func ParserGetObjectsInDir(ctx *StmtCtx, dir string) ([]DDObject, error) {
+func ParserGetObjectsInDir(c *target.Config, ctx *StmtCtx, dir string) ([]DDObject, error) {
 	parser := ParseCtx{}
 	parser.Stmt = ctx
+	parser.Config = c
 	err := cmn.ParserIterateOverSource(dir, ParserGetValidateObject, &parser)
 	if err != nil {
 		return nil, err

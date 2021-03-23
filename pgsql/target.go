@@ -71,7 +71,10 @@ func TargetGetDB(target *target.Target) (interface{}, error) {
 }
 
 func TargetGetMergeScript(
-	dbCtx interface{}, ectx *target.Target, args []string,
+	c *target.Config,
+	dbCtx interface{},
+	ectx *target.Target,
+	args []string,
 ) (string, error) {
 	db := dbCtx.(*sql.DB)
 	ts := MergeTableCtx{}
@@ -82,7 +85,7 @@ func TargetGetMergeScript(
 	var dd []DDObject
 
 	for _, arg := range args {
-		if dd, err = ParserGetObjectsInDir(ctx, arg); err != nil {
+		if dd, err = ParserGetObjectsInDir(c, ctx, arg); err != nil {
 			return "", err
 		}
 		for _, obj := range dd {

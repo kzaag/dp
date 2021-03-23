@@ -42,12 +42,13 @@ type Exec struct {
 }
 
 type Ctx struct {
-	GetMergeScript func(dbCtx interface{}, target *Target, args []string) (string, error)
-	DbNew          func(*Target) (interface{}, error)
-	DbClose        func(dbCtx interface{})
-	DbPing         func(dbCtx interface{}) error
-	DbExec         func(dbCtx interface{}, stmt string, args ...interface{}) error
-	DbSuffix       string
+	GetMergeScript func(
+		c *Config, dbCtx interface{}, target *Target, args []string) (string, error)
+	DbNew    func(*Target) (interface{}, error)
+	DbClose  func(dbCtx interface{})
+	DbPing   func(dbCtx interface{}) error
+	DbExec   func(dbCtx interface{}, stmt string, args ...interface{}) error
+	DbSuffix string
 }
 
 func fixAbsPaths(basepath string, paths []string) {
@@ -65,6 +66,7 @@ func (ctx *Ctx) ExecTarget(
 	basepath string,
 	target *Target,
 	uargv *Args,
+	c *Config,
 ) error {
 	var err error
 	var db interface{}
@@ -108,7 +110,7 @@ func (ctx *Ctx) ExecTarget(
 		case "merge":
 			fixAbsPaths(basepath, e.Args)
 			script := ""
-			script, err = ctx.GetMergeScript(db, target, e.Args)
+			script, err = ctx.GetMergeScript(c, db, target, e.Args)
 			if err != nil {
 				break
 			}
@@ -118,7 +120,7 @@ func (ctx *Ctx) ExecTarget(
 			_, err = ctx.ExecLines(db, e.Args, uargv)
 		case "script":
 			fixAbsPaths(basepath, e.Args)
-			err = ctx.ExecPaths(db, e.Args, uargv)
+			err = ctx.ExecPaths(c, db, e.Args, uargv)
 		}
 
 		if e.Execute {
@@ -147,7 +149,7 @@ func (ctx *Ctx) ExecTarget(
 func (ctx *Ctx) ExecConfig(config *Config, uargs *Args) error {
 	var err error
 	for _, target := range config.Targets {
-		if err = ctx.ExecTarget(config.Base, target, uargs); err != nil {
+		if err = ctx.ExecTarget(config.Base, target, uargs, config); err != nil {
 			return err
 		}
 	}

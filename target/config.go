@@ -60,13 +60,24 @@ type PreConfig struct {
 	deal with it.
 */
 type Config struct {
-	Driver  string
-	Base    string
-	Targets []*Target
-	PreConfig
+	Driver    string
+	Base      string
+	Targets   []*Target
+	PreConfig `yaml:",inline"`
 }
 
 const notFoundMsg = "stat *.yml: no such file or directory"
+
+func EvaluateDefines(c *PreConfig, f []byte) ([]byte, error) {
+
+	for i := range c.Defines {
+		for k := range c.Defines[i] {
+			f = bytes.Replace(f, []byte("${"+k+"}"), []byte(c.Defines[i][k]), -1)
+		}
+	}
+
+	return f, nil
+}
 
 func prepareConfig(j []byte) ([]byte, error) {
 	var pc PreConfig
@@ -80,13 +91,7 @@ func prepareConfig(j []byte) ([]byte, error) {
 			pc.Version, Version)
 	}
 
-	for i := range pc.Defines {
-		for k := range pc.Defines[i] {
-			j = bytes.Replace(j, []byte("${"+k+"}"), []byte(pc.Defines[i][k]), -1)
-		}
-	}
-
-	return j, nil
+	return EvaluateDefines(&pc, j)
 }
 
 func createFromText(c *Config, j []byte) error {

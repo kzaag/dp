@@ -59,7 +59,7 @@ func (ctx *Ctx) ExecLines(
 }
 
 func (ctx *Ctx) ExecFile(
-	db interface{}, filePath string, uargv *Args,
+	c *Config, db interface{}, filePath string, uargv *Args,
 ) error {
 	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -94,7 +94,7 @@ func (ctx *Ctx) ExecFile(
 }
 
 func (ctx *Ctx) ExecDir(
-	db interface{}, dirPath string, uargv *Args,
+	c *Config, db interface{}, dirPath string, uargv *Args,
 ) error {
 
 	files, err := ioutil.ReadDir(dirPath)
@@ -109,7 +109,7 @@ func (ctx *Ctx) ExecDir(
 		}
 		if fi.IsDir() {
 
-			if err = ctx.ExecDir(db, newpath, uargv); err != nil {
+			if err = ctx.ExecDir(c, db, newpath, uargv); err != nil {
 				return err
 			}
 
@@ -119,7 +119,7 @@ func (ctx *Ctx) ExecDir(
 				continue
 			}
 
-			if err = ctx.ExecFile(db, newpath, uargv); err != nil {
+			if err = ctx.ExecFile(c, db, newpath, uargv); err != nil {
 				return err
 			}
 
@@ -129,25 +129,25 @@ func (ctx *Ctx) ExecDir(
 }
 
 func (ctx *Ctx) ExecPath(
-	db interface{}, path string, uargv *Args,
+	c *Config, db interface{}, path string, uargv *Args,
 ) error {
 	fi, err := os.Lstat(path)
 	if err != nil {
 		return err
 	}
 	if fi.IsDir() {
-		return ctx.ExecDir(db, path, uargv)
+		return ctx.ExecDir(c, db, path, uargv)
 	} else {
-		return ctx.ExecFile(db, path, uargv)
+		return ctx.ExecFile(c, db, path, uargv)
 	}
 }
 
 func (ctx *Ctx) ExecPaths(
-	db interface{}, paths []string, uargv *Args,
+	c *Config, db interface{}, paths []string, uargv *Args,
 ) error {
 	var err error
 	for i := 0; i < len(paths); i++ {
-		if err = ctx.ExecPath(db, paths[i], uargv); err != nil {
+		if err = ctx.ExecPath(c, db, paths[i], uargv); err != nil {
 			return err
 		}
 	}
