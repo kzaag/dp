@@ -97,7 +97,7 @@ func ExpandDefines(pc *PreConfig) {
 			for j := range pc.Defines {
 				for k2, v2 := range pc.Defines[j] {
 					if k2 != k {
-						strings.Replace(v2, "${"+k+"}", v, -1)
+						pc.Defines[j][k2] = strings.Replace(v2, "${"+k+"}", v, -1)
 					}
 				}
 			}

@@ -3,7 +3,8 @@ version: v1.2.0
 
 defines:
   - db: dp
-  - user_id: 1
+  - xx: 2
+  - user_id: ${xx} or 1 = 1
 
 base_target: &base_target
   server: ["127.0.0.1"]
