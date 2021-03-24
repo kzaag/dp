@@ -105,6 +105,10 @@ func ExpandDefines(pc *PreConfig) {
 	}
 }
 
+var forbiddenDefines = map[string]struct{}{
+	//"#": {},
+}
+
 func prepareConfig(j []byte, uargv *Args) (*PreConfig, []byte, error) {
 	var pc PreConfig
 	if err := yaml.Unmarshal(j, &pc); err != nil {
@@ -119,7 +123,19 @@ func prepareConfig(j []byte, uargv *Args) (*PreConfig, []byte, error) {
 
 	for i := range pc.Defines {
 		if len(pc.Defines[i]) != 1 {
-			return nil, nil, fmt.Errorf("invalid define at index %d\n\tDefines must be array of maps with only 1 record (they must be tupples)", i)
+			return nil, nil,
+				fmt.Errorf("invalid define at index %d\n\tDefines must be array of maps with only 1 record (they must be tupples)", i)
+		}
+		// define "foo: ${#}" is a placeholder, and if not changed before exec will raise error
+		for k := range pc.Defines[i] {
+			if _, ok := forbiddenDefines[k]; ok {
+				return nil, nil,
+					fmt.Errorf("directive '%s' is reserved and cannot be specified", k)
+			}
+			if pc.Defines[i][k] == "${}" {
+				return nil, nil,
+					fmt.Errorf("directive '%s' not set", k)
+			}
 		}
 	}
 
