@@ -79,33 +79,78 @@ func EvaluateDefines(c *PreConfig, f []byte) ([]byte, error) {
 	return f, nil
 }
 
-func prepareConfig(j []byte) ([]byte, error) {
+func MergeUserDefines(pc *PreConfig, uargv *Args) {
+	if uargv != nil && uargv.Set != nil {
+		for i := range pc.Defines {
+			for c := range pc.Defines[i] {
+				if v, ok := uargv.Set[c]; ok {
+					pc.Defines[i][c] = v
+				}
+			}
+		}
+	}
+}
+
+func ExpandDefines(pc *PreConfig) {
+	for i := range pc.Defines {
+		for k, v := range pc.Defines[i] {
+			for j := range pc.Defines {
+				for k2, v2 := range pc.Defines[j] {
+					if k2 != k {
+						strings.Replace(v2, "${"+k+"}", v, -1)
+					}
+				}
+			}
+		}
+	}
+}
+
+func prepareConfig(j []byte, uargv *Args) (*PreConfig, []byte, error) {
 	var pc PreConfig
 	if err := yaml.Unmarshal(j, &pc); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if pc.Version != Version {
-		return nil, fmt.Errorf(
+		return nil, nil, fmt.Errorf(
 			"dp: config requested version %s which is incompatible with current module version %s.\nUpgrade your dp version",
 			pc.Version, Version)
 	}
 
-	return EvaluateDefines(&pc, j)
+	for i := range pc.Defines {
+		if len(pc.Defines[i]) != 1 {
+			return nil, nil, fmt.Errorf("invalid define at index %d\n\tDefines must be array of maps with only 1 record (they must be tupples)", i)
+		}
+	}
+
+	// append defines from uargv into config defines.
+	// if exists then replace
+	MergeUserDefines(&pc, uargv)
+
+	// evalute defines within pre config
+	ExpandDefines(&pc)
+
+	jc, err := EvaluateDefines(&pc, j)
+
+	return &pc, jc, err
 }
 
-func createFromText(c *Config, j []byte) error {
+func createFromText(c *Config, j []byte, uargv *Args) error {
 
-	j, err := prepareConfig(j)
+	pc, j, err := prepareConfig(j, uargv)
 	if err != nil {
 		return err
 	}
 
-	return yaml.Unmarshal(j, c)
-	/*
-		i dont think that dp should support more than 1 config file format
-		return json.Unmarshal(j, c)
-	*/
+	err = yaml.Unmarshal(j, c)
+
+	if err != nil {
+		return err
+	}
+
+	c.PreConfig = *pc
+
+	return nil
 }
 
 func getBufFromDir(dir string) (string, []byte, error) {
@@ -130,7 +175,7 @@ func getBufFromDir(dir string) (string, []byte, error) {
 	return "", nil, fmt.Errorf(notFoundMsg)
 }
 
-func NewConfigFromPath(configPath string) (*Config, error) {
+func NewConfigFromPath(configPath string, uargv *Args) (*Config, error) {
 	var bf []byte
 	var err error
 	var fpath string
@@ -157,7 +202,7 @@ func NewConfigFromPath(configPath string) (*Config, error) {
 		}
 	}
 
-	if err = createFromText(&c, bf); err != nil {
+	if err = createFromText(&c, bf, uargv); err != nil {
 		return nil, err
 	}
 

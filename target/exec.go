@@ -66,12 +66,19 @@ func (ctx *Ctx) ExecFile(
 		return err
 	}
 
+	if b, err = EvaluateDefines(&c.PreConfig, b); err != nil {
+		return err
+	}
+
 	script := string(b)
 	var t time.Time
 
-	if uargv.Verbose {
+	if uargv.ExtraVerbose {
+		fmt.Println(script)
 		t = time.Now()
+	} else if uargv.Verbose {
 		fmt.Println(filePath)
+		t = time.Now()
 	}
 
 	if uargv.Execute {

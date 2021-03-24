@@ -22,7 +22,7 @@ func main() {
 	/*
 		parse configuration file
 	*/
-	if c, err = target.NewConfigFromPath(args.ConfigPath); err != nil {
+	if c, err = target.NewConfigFromPath(args.ConfigPath, args); err != nil {
 		cmn.CndPrintError(args.Raw, err)
 		os.Exit(2)
 	}

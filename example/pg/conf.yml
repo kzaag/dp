@@ -1,8 +1,9 @@
 driver: postgres
-version: v1.1.0
+version: v1.2.0
 
 defines:
   - db: dp
+  - user_id: 1
 
 base_target: &base_target
   server: ["127.0.0.1"]
@@ -11,6 +12,7 @@ base_target: &base_target
     sslmode: disable
 
 targets:
+
   - name: reset
     << : *base_target
     #
@@ -27,6 +29,7 @@ targets:
         args: ["drop database ${db}"]
         execute: true
         err: warn
+
   - name: master
     << : *base_target
     database: postgres
@@ -58,3 +61,5 @@ targets:
       # it wont return anything since we dont read data, but quyery wqill execvute nontheless and errors will be returned.
       # it may be cool to add result interpreter so records will be displayed in terminal...
         args: ["select * from users", "select * from houses"]
+      - type: script
+        args: ["./1.sql"]
