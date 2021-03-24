@@ -24,7 +24,7 @@ func main() {
 	*/
 	if c, err = target.NewConfigFromPath(args.ConfigPath); err != nil {
 		cmn.CndPrintError(args.Raw, err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 
 	/*
@@ -39,13 +39,13 @@ func main() {
 		ctx = pgsql.TargetCtxNew()
 	default:
 		cmn.CndPrintError(args.Raw, fmt.Errorf("Unkown driver: %s", c.Driver))
-		os.Exit(1)
+		os.Exit(2)
 	}
 
 	err = ctx.ExecConfig(c, args)
 
 	if err != nil {
 		cmn.CndPrintError(args.Raw, err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 }

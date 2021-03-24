@@ -47,7 +47,7 @@ func (ctx *Ctx) ExecLines(
 		done++
 	}
 
-	if done == 0 {
+	if done == 0 && uargv.Verbose {
 		cmn.CndPrintln(
 			uargv.Raw,
 			cmn.PrintflnSuccess,

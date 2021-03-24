@@ -1,5 +1,8 @@
 driver: postgres
-version: v1.0.0
+version: v1.1.0
+
+defines:
+  - db: dp
 
 base_target: &base_target
   server: ["127.0.0.1"]
@@ -21,7 +24,7 @@ targets:
     user: postgres
     exec:
       - type: stmt
-        args: ["drop database dp"]
+        args: ["drop database ${db}"]
         execute: true
         err: warn
   - name: master
@@ -32,7 +35,7 @@ targets:
     user: postgres
     exec:
       - type: stmt
-        args: ["create database dp"]
+        args: ["create database ${db}"]
         # if database exists and this returns error, then print error information, but proceed with execution.
         # alternatives are: 
         #   ignore          - completely ignore error. 
@@ -45,7 +48,7 @@ targets:
 
   - name: dp
     << : *base_target
-    database: dp
+    database: ${db}
     password: postgres
     user: postgres
     exec:

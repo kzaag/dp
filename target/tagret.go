@@ -133,9 +133,13 @@ func (ctx *Ctx) ExecTarget(
 			case "ignore":
 				break
 			case "warn":
-				cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "    ", "%v.", err)
+				if uargv.Verbose {
+					cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "    ", "%v.", err)
+				}
 			case "warn abort":
-				cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "    ", "%v.", err)
+				if uargv.Verbose {
+					cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "    ", "%v.", err)
+				}
 				return nil
 			default:
 				cmn.CndPrintError(uargv.Raw, err)
