@@ -121,6 +121,10 @@ func prepareConfig(j []byte, uargv *Args) (*PreConfig, []byte, error) {
 			pc.Version, Version)
 	}
 
+	// append defines from uargv into config defines.
+	// if exists then replace
+	MergeUserDefines(&pc, uargv)
+
 	for i := range pc.Defines {
 		if len(pc.Defines[i]) != 1 {
 			return nil, nil,
@@ -138,10 +142,6 @@ func prepareConfig(j []byte, uargv *Args) (*PreConfig, []byte, error) {
 			}
 		}
 	}
-
-	// append defines from uargv into config defines.
-	// if exists then replace
-	MergeUserDefines(&pc, uargv)
 
 	// evalute defines within pre config
 	ExpandDefines(&pc)
