@@ -46,12 +46,17 @@ func PrintflnSuccess(prefix, _fmt string, argv ...interface{}) {
 	//FPrintflnTrailing(os.Stdout, ForeGreen, _fmt, argv...)
 }
 
-func PrintflnError(_fmt string, argv ...interface{}) {
-	FPrintflnTrailing(os.Stderr, ForeRed, _fmt, argv...)
+func PrintflnError(prefix, _fmt string, argv ...interface{}) {
+	//FPrintflnTrailing(os.Stderr, ForeRed, prefix, _fmt, argv...)
+	fmt.Fprintf(
+		os.Stderr,
+		fmt.Sprintf("%s%v%s %s%v\n",
+			prefix, ForeRed, MediumX, _fmt, AttrOff),
+		argv...)
 }
 
 func PrintError(err error) {
-	PrintflnError("%s", err)
+	PrintflnError("", "%s", err)
 }
 
 const MediumX string = "\u2715"
@@ -70,8 +75,8 @@ const MediumBulletPoint string = "\u2022"
 func PrintflnNotify(prefix, _fmt string, argv ...interface{}) {
 	fmt.Fprintf(
 		os.Stdout,
-		fmt.Sprintf("%s%v%s%v %s\n",
-			prefix, ForeBlue, MediumBulletPoint, AttrOff, _fmt),
+		fmt.Sprintf("%v%s%s %s%v\n",
+			ForeMagenta, prefix, MediumBulletPoint, _fmt, AttrOff),
 		argv...)
 	//FPrintflnTrailing(os.Stdout, ForeBlue, _fmt, argv...)
 }

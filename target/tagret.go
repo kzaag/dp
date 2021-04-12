@@ -97,13 +97,12 @@ func (ctx *Ctx) ExecTarget(
 				uargv.Raw,
 				cmn.PrintflnNotify,
 				"",
-				"%v%s %s@%s %d/%s%v",
-				cmn.ForeBlue,
+				"%s %s@%s %d/%s",
 				target.Name,
 				target.Database,
 				target.Server[0],
-				i, e.Type,
-				cmn.AttrOff)
+				i,
+				e.Type)
 		}
 
 		switch e.Type {
@@ -133,13 +132,9 @@ func (ctx *Ctx) ExecTarget(
 			case "ignore":
 				break
 			case "warn":
-				if uargv.Verbose {
-					cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "    ", "%v.", err)
-				}
+				cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "    ", "%v.", err)
 			case "warn abort":
-				if uargv.Verbose {
-					cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "    ", "%v.", err)
-				}
+				cmn.CndPrintfln(uargv.Raw, cmn.PrintflnWarn, "    ", "%v.", err)
 				return nil
 			default:
 				cmn.CndPrintError(uargv.Raw, err)
