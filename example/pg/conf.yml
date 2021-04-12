@@ -1,5 +1,5 @@
 driver: postgres
-version: v1.2.0
+version: v1.3.0
 
 defines:
   - db: dp
@@ -11,6 +11,9 @@ base_target: &base_target
   args:
     # needless to say - use this for testing only.
     sslmode: disable
+  # if you dont provide password in this file. you will be prompted to do so during deploy
+  password: postgres
+  user: postgres
 
 targets:
 
@@ -23,8 +26,6 @@ targets:
     #
     on_demand: true
     database: postgres
-    password: postgres
-    user: postgres
     exec:
       - type: stmt
         args: ["drop database ${db}"]
@@ -34,9 +35,6 @@ targets:
   - name: master
     << : *base_target
     database: postgres
-    # if you dont provide password in this file. you will be prompted to do so during deploy
-    password: postgres
-    user: postgres
     exec:
       - type: stmt
         args: ["create database ${db}"]
@@ -53,8 +51,6 @@ targets:
   - name: dp
     << : *base_target
     database: ${db}
-    password: postgres
-    user: postgres
     exec:
       - type: merge
         args: ["./tables/", "./types"]
