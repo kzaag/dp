@@ -554,7 +554,7 @@ func StmtAlterColumn(tableName string, sc, c *Column) string {
 	} else if sc.Default != c.Default {
 		s := "ALTER TABLE " + tableName +
 			" ALTER COLUMN " + c.Name +
-			" SET DEFAULT " + c.Default
+			" SET DEFAULT " + c.Default + "::" + strings.ToLower(c.FullType)
 		ret += s + ";\n"
 	}
 
