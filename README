@@ -1,0 +1,15 @@
+
+database-project 
+
+schema versioning and deployement for postgres
+
+get started:
+
+make
+cd bin && ./dp -c ../pg/conf.yml -v
+- -c    the configuration file path.
+- -v    verbose logging.  
+
+after verifying that changes are ok, apply them by adding -e flag:
+./dp -c ../pg/conf.yml -v -e
+- -e : execute queries instead of generating output  

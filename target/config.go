@@ -191,11 +191,31 @@ func getBufFromDir(dir string) (string, []byte, error) {
 	return "", nil, fmt.Errorf(notFoundMsg)
 }
 
+func setConfigDir(c *Config, fpath string) error {
+	var err error
+	if c.Base != "" {
+		return nil
+	}
+	if fpath, err = filepath.Abs(fpath); err != nil {
+		return err
+	}
+	dir := filepath.Dir(fpath)
+	c.Base = dir
+	return nil
+}
+
+func NewConfigFromBytes(bf []byte, fpath string, uargv *Args) (*Config, error) {
+	var c = new(Config)
+	if err := setConfigDir(c, fpath); err != nil {
+		return nil, err
+	}
+	return c, createFromText(c, bf, uargv)
+}
+
 func NewConfigFromPath(configPath string, uargv *Args) (*Config, error) {
 	var bf []byte
 	var err error
 	var fpath string
-	var c Config
 	var fi os.FileInfo
 
 	if configPath == "" {
@@ -218,45 +238,5 @@ func NewConfigFromPath(configPath string, uargv *Args) (*Config, error) {
 		}
 	}
 
-	if err = createFromText(&c, bf, uargv); err != nil {
-		return nil, err
-	}
-
-	if c.Base == "" {
-		if fpath, err = filepath.Abs(fpath); err != nil {
-			return nil, err
-		}
-		dir := filepath.Dir(fpath)
-		c.Base = dir
-	}
-
-	return &c, err
+	return NewConfigFromBytes(bf, fpath, uargv)
 }
-
-// func FindExecWithAuth(data *Data, execType string) *Exec {
-// 	var ret *Exec = nil
-// 	var i int
-// 	for i = 0; i < len(data.Exec); i++ {
-// 		if data.Exec[i].Type == execType {
-// 			ret = &data.Exec[i]
-// 			break
-// 		}
-// 	}
-// 	if ret == nil {
-// 		return ret
-// 	}
-// 	for i = 0; i < len(data.Auth); i++ {
-// 		if data.Auth[i].Name == ret.Auth {
-// 			ret.AuthPtr = &data.Auth[i]
-// 		}
-// 	}
-// 	if ret.AuthPtr == nil {
-// 		/* assign default auth if none is specified by user */
-// 		if ret.Auth == "" && len(data.Auth) > 0 {
-// 			ret.AuthPtr = &data.Auth[0]
-// 		} else {
-// 			return nil
-// 		}
-// 	}
-// 	return ret
-// }
